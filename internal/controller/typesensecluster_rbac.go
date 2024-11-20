@@ -205,22 +205,12 @@ func (r *TypesenseClusterReconciler) createRole(ctx context.Context, serviceAcco
 		Rules: []rbacv1.PolicyRule{
 			{
 				APIGroups: []string{""},
-				Resources: []string{"events"},
-				Verbs:     []string{"create", "patch"},
+				Resources: []string{"pods"},
+				Verbs:     []string{"get", "list", "watch"},
 			},
 			{
 				APIGroups: []string{"apps"},
-				Resources: []string{"deployments", "replicasets", "statefulsets"},
-				Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
-			},
-			{
-				APIGroups: []string{"batch"},
-				Resources: []string{"cronjobs"},
-				Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
-			},
-			{
-				APIGroups: []string{"autoscaling"},
-				Resources: []string{"horizontalpodautoscalers"},
+				Resources: []string{"statefulsets"},
 				Verbs:     []string{"get", "list", "watch", "create", "update", "patch", "delete"},
 			},
 		},
