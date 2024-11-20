@@ -78,7 +78,7 @@ func (r *TypesenseClusterReconciler) createHeadlessService(ctx context.Context, 
 				"app": fmt.Sprintf("%s-sts", ts.Name),
 			},
 			Ports: []v1.ServicePort{
-				v1.ServicePort{
+				{
 					Name:       "http",
 					Port:       ts.Spec.ApiPort,
 					TargetPort: intstr.IntOrString{IntVal: 8108},
@@ -112,7 +112,7 @@ func (r *TypesenseClusterReconciler) createDiscoService(ctx context.Context, key
 				"app": fmt.Sprintf("%s-sts-resolver", ts.Name),
 			},
 			Ports: []v1.ServicePort{
-				v1.ServicePort{
+				{
 					Name:       "http",
 					Port:       ts.Spec.ApiPort,
 					TargetPort: intstr.IntOrString{IntVal: 8108},

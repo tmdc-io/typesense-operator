@@ -1,0 +1,96 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.15.0
+  name: typesenseclusters.ts.opentelekomcloud.com
+spec:
+  group: ts.opentelekomcloud.com
+  names:
+    kind: TypesenseCluster
+    listKind: TypesenseClusterList
+    plural: typesenseclusters
+    singular: typesensecluster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.replicas
+      name: Replicas
+      type: integer
+    - jsonPath: .spec.apiPort
+      name: API Port
+      type: integer
+    - jsonPath: .spec.peeringPort
+      name: Peering Port
+      type: integer
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: TypesenseCluster is the Schema for the typesenseclusters API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: TypesenseClusterSpec defines the desired state of TypesenseCluster
+            properties:
+              apiPort:
+                default: 8108
+                format: int32
+                type: integer
+              cors:
+                properties:
+                  enabled:
+                    default: false
+                    type: boolean
+                  storageClassName:
+                    type: string
+                type: object
+              peeringPort:
+                default: 8107
+                format: int32
+                type: integer
+              replicas:
+                default: 3
+                format: int32
+                minimum: 1
+                type: integer
+              resetPeersOnError:
+                default: false
+                type: boolean
+              storage:
+                properties:
+                  size:
+                    default: 1Gi
+                    type: string
+                  storageClassName:
+                    type: string
+                required:
+                - storageClassName
+                type: object
+            required:
+            - storage
+            type: object
+          status:
+            description: TypesenseClusterStatus defines the observed state of TypesenseCluster
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

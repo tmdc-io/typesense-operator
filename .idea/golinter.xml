@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GoLinterSettings">
+    <option name="enabledLinters">
+      <list>
+        <option value="staticcheck" />
+        <option value="exportloopref" />
+        <option value="dupl" />
+        <option value="govet" />
+        <option value="misspell" />
+        <option value="goconst" />
+        <option value="errcheck" />
+        <option value="lll" />
+        <option value="ineffassign" />
+        <option value="unparam" />
+        <option value="ginkgolinter" />
+        <option value="nakedret" />
+        <option value="gofmt" />
+        <option value="unconvert" />
+        <option value="unused" />
+        <option value="revive" />
+        <option value="goimports" />
+        <option value="gosimple" />
+        <option value="gocyclo" />
+        <option value="prealloc" />
+      </list>
+    </option>
+    <option name="goLinterExe" value="$PROJECT_DIR$/../../../../lint/golangci-lint" />
+    <option name="linterSelected" value="true" />
+  </component>
+</project>
