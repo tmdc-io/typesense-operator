@@ -23,3 +23,5 @@ go.work.sum
 
 # env file
 .env
+/bin/controller-gen
+/bin/controller-gen-v0.15.0
