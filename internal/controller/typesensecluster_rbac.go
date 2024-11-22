@@ -145,12 +145,7 @@ func (r *TypesenseClusterReconciler) createServiceAccount(ctx context.Context, t
 		},
 	}
 
-	err := ctrl.SetControllerReference(ts, sa, r.Scheme)
-	if err != nil {
-		return nil, err
-	}
-
-	err = r.Create(ctx, sa)
+	err := r.Create(ctx, sa)
 	if err != nil {
 		return nil, err
 	}

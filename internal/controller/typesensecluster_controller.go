@@ -83,10 +83,10 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	//_, err = r.ReconcileServices(ctx, ts)
-	//if err != nil {
-	//	return ctrl.Result{}, err
-	//}
+	_, err = r.ReconcileServices(ctx, ts)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }

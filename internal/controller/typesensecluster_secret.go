@@ -59,6 +59,9 @@ func (r *TypesenseClusterReconciler) createAdminApiKey(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretObjectKey.Name,
 			Namespace: secretObjectKey.Namespace,
+			Labels: map[string]string{
+				"app": fmt.Sprintf("%s-sts", ts.Name),
+			},
 		},
 		Type: v1.SecretTypeOpaque,
 		Data: map[string][]byte{

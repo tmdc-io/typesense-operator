@@ -51,6 +51,9 @@ func (r *TypesenseClusterReconciler) createConfigMap(ctx context.Context, key cl
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      key.Name,
 			Namespace: key.Namespace,
+			Labels: map[string]string{
+				"app": fmt.Sprintf("%s-sts", ts.Name),
+			},
 		},
 		Data: map[string]string{
 			"nodes": strings.Join(nodes, ","),

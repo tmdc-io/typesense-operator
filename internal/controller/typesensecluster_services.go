@@ -43,25 +43,23 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 	if !headlessExists {
 		r.logger.Info("creating headless service", "service", headlessObjectKey)
 
-		headless, err := r.createHeadlessService(ctx, headlessObjectKey, &ts)
+		svc, err := r.createHeadlessService(ctx, headlessObjectKey, &ts)
 		if err != nil {
 			r.logger.Error(err, "creating headless service failed", "service", headlessObjectKey)
 			return nil, err
 		}
 
-		return headless, nil
+		headless = *svc
 	}
 
 	if !discoExists {
 		r.logger.Info("creating resolver service", "service", discoObjectKey)
 
-		headless, err := r.createDiscoService(ctx, discoObjectKey, &ts)
+		_, err := r.createDiscoService(ctx, discoObjectKey, &ts)
 		if err != nil {
 			r.logger.Error(err, "creating resolver service failed", "service", discoObjectKey)
 			return nil, err
 		}
-
-		return headless, nil
 	}
 
 	return &headless, nil
@@ -72,9 +70,12 @@ func (r *TypesenseClusterReconciler) createHeadlessService(ctx context.Context, 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      key.Name,
 			Namespace: key.Namespace,
+			Labels: map[string]string{
+				"app": fmt.Sprintf("%s-sts", ts.Name),
+			},
 		},
 		Spec: v1.ServiceSpec{
-			Type:                     v1.ClusterIPNone,
+			ClusterIP:                v1.ClusterIPNone,
 			PublishNotReadyAddresses: true,
 			Selector: map[string]string{
 				"app": fmt.Sprintf("%s-sts", ts.Name),
@@ -107,11 +108,14 @@ func (r *TypesenseClusterReconciler) createDiscoService(ctx context.Context, key
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      key.Name,
 			Namespace: key.Namespace,
+			Labels: map[string]string{
+				"app": fmt.Sprintf("%s-sts", ts.Name),
+			},
 		},
 		Spec: v1.ServiceSpec{
 			Type: v1.ServiceTypeClusterIP,
 			Selector: map[string]string{
-				"app": fmt.Sprintf("%s-sts-resolver", ts.Name),
+				"app": fmt.Sprintf("%s-sts", ts.Name),
 			},
 			Ports: []v1.ServicePort{
 				{
