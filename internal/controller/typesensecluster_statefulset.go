@@ -174,14 +174,14 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 								},
 							},
 						},
-						//{
-						//	Name: "data",
-						//	VolumeSource: corev1.VolumeSource{
-						//		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						//			ClaimName: "data",
-						//		},
-						//	},
-						//},
+						{
+							Name: "data",
+							VolumeSource: corev1.VolumeSource{
+								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+									ClaimName: "data",
+								},
+							},
+						},
 					},
 				},
 			},
