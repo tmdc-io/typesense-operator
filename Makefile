@@ -195,7 +195,7 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 .PHONY: samples
-samples: kustomize generate manifests install## Install CRDs into the K8s cluster specified in ~/.kube/config.
+samples: kustomize generate manifests install ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/samples | $(KUBECTL) apply -f -
 
 ##@ Dependencies

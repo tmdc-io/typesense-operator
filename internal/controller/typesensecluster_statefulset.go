@@ -55,6 +55,9 @@ func (r *TypesenseClusterReconciler) createStatefulSet(ctx context.Context, key 
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      key.Name,
 			Namespace: key.Namespace,
+			Labels: map[string]string{
+				"app": fmt.Sprintf("%s-sts", ts.Name),
+			},
 		},
 		Spec: appsv1.StatefulSetSpec{
 			ServiceName:         fmt.Sprintf("%s-sts", ts.Name),
@@ -163,14 +166,14 @@ func (r *TypesenseClusterReconciler) createStatefulSet(ctx context.Context, key 
 								},
 							},
 						},
-						{
-							Name: "data",
-							VolumeSource: corev1.VolumeSource{
-								PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-									ClaimName: "data",
-								},
-							},
-						},
+						//{
+						//	Name: "data",
+						//	VolumeSource: corev1.VolumeSource{
+						//		PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						//			ClaimName: "data",
+						//		},
+						//	},
+						//},
 					},
 				},
 			},
