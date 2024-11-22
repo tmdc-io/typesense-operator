@@ -14,10 +14,10 @@ import (
 func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.Service, error) {
 	r.logger.Info("reconciling services")
 
-	headlessSvcName := fmt.Sprintf("%s-sts-svc", *ts.Status.ClusterId)
+	headlessSvcName := fmt.Sprintf("%s-sts-svc", ts.Name)
 	headlessExists := true
 	headlessObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: headlessSvcName}
-	discoSvcName := fmt.Sprintf("%s-svc", *ts.Status.ClusterId)
+	discoSvcName := fmt.Sprintf("%s-svc", ts.Name)
 	discoExists := true
 	discoObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: discoSvcName}
 

@@ -12,7 +12,7 @@ import (
 )
 
 func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.ConfigMap, error) {
-	configMapName := fmt.Sprintf("%s-nodeslist", *ts.Status.ClusterId)
+	configMapName := fmt.Sprintf("%s-nodeslist", ts.Name)
 	configMapExists := true
 	configMapObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: configMapName}
 
@@ -40,11 +40,17 @@ func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts 
 	return &nodesList, nil
 }
 
+const nodeNameLenLimit = 64
+
 func (r *TypesenseClusterReconciler) createConfigMap(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster) (*v1.ConfigMap, error) {
 	nodes := make([]string, ts.Spec.Replicas)
 	for i := 0; i < int(ts.Spec.Replicas); i++ {
-		clusterId := *ts.Status.ClusterId
-		nodes[i] = fmt.Sprintf("%s-sts-%d.%s-sts-svc.%s.svc.cluster.local:%d:%d", clusterId, i, clusterId, ts.Namespace, ts.Spec.PeeringPort, ts.Spec.ApiPort)
+		nodeName := fmt.Sprintf("%s-sts-%d.%s-sts-svc.%s.svc.cluster.local", ts.Name, i, ts.Name, ts.Namespace)
+		if len(nodeName) > nodeNameLenLimit {
+			return nil, fmt.Errorf("raft error: node name should not exceed %d characters: %s", nodeNameLenLimit, nodeName)
+		}
+
+		nodes[i] = fmt.Sprintf("%s:%d:%d", nodeName, ts.Spec.PeeringPort, ts.Spec.ApiPort)
 	}
 
 	cm := &v1.ConfigMap{

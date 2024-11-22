@@ -82,15 +82,6 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	if ts.Status.ClusterId == nil {
-		err := r.updateClusterId(ctx, &ts)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
-	r.logger = r.logger.WithValues("cluster-id", *ts.Status.ClusterId)
-
 	sa, err := r.ReconcileRbac(ctx, ts)
 	if err != nil {
 		return ctrl.Result{}, err

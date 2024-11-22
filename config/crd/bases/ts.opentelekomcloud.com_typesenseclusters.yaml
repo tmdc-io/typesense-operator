@@ -15,9 +15,6 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .status.clusterId
-      name: Cluster ID
-      type: string
     - jsonPath: .spec.image
       name: Image
       type: string
@@ -106,12 +103,10 @@ spec:
           status:
             description: TypesenseClusterStatus defines the observed state of TypesenseCluster
             properties:
-              clusterId:
+              healthy:
                 description: |-
                   INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
                   Important: Run "make" to regenerate code after modifying this file
-                type: string
-              healthy:
                 type: boolean
               ready:
                 type: boolean

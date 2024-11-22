@@ -36,7 +36,7 @@ func generateSecureRandomString(length int) (string, error) {
 
 func getLabels(ts *tsv1alpha1.TypesenseCluster) map[string]string {
 	return map[string]string{
-		"app": fmt.Sprintf("%s-sts", *ts.Status.ClusterId),
+		"app": fmt.Sprintf("%s-sts", ts.Name),
 	}
 }
 

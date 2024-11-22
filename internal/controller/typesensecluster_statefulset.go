@@ -25,7 +25,7 @@ func (r *TypesenseClusterReconciler) ReconcileStatefulSet(
 ) (*appsv1.StatefulSet, error) {
 	r.logger.Info("reconciling statefulset")
 
-	stsName := fmt.Sprintf("%s-sts", *ts.Status.ClusterId)
+	stsName := fmt.Sprintf("%s-sts", ts.Name)
 	stsExists := true
 	stsObjectKey := client.ObjectKey{
 		Name:      stsName,

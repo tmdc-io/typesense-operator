@@ -11,7 +11,7 @@ import (
 )
 
 func (r *TypesenseClusterReconciler) ReconcileSecret(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.Secret, error) {
-	secretName := fmt.Sprintf("%s-admin-key", *ts.Status.ClusterId)
+	secretName := fmt.Sprintf("%s-admin-key", ts.Name)
 	secretExists := true
 	r.logger.Info("reconciling admin api key", "secret", secretName)
 
