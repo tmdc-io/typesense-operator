@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,6 +29,8 @@ type TypesenseClusterSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	Image string `json:"image"`
+
 	// +optional
 	// +kubebuilder:default=3
 	// +kubebuilder:validation:Minimum=1
@@ -38,19 +41,19 @@ type TypesenseClusterSpec struct {
 	// +optional
 	// +kubebuilder:default=8108
 	// +kubebuilder:validation:Type=integer
-	ApiPort int32 `json:"apiPort,omitempty"`
+	ApiPort int `json:"apiPort,omitempty"`
 
 	// +optional
 	// +kubebuilder:default=8107
 	// +kubebuilder:validation:Type=integer
-	PeeringPort int32 `json:"peeringPort,omitempty"`
+	PeeringPort int `json:"peeringPort,omitempty"`
 
 	// +optional
-	// +kubebuilder:default=false
+	// +kubebuilder:default=true
 	// +kubebuilder:validation:Type=boolean
 	ResetPeersOnError bool `json:"resetPeersOnError,omitempty"`
 
-	Storage StorageSpec `json:"storage"`
+	Storage *StorageSpec `json:"storage"`
 
 	// +optional
 	Cors *CorsSpec `json:"cors,omitempty"`
@@ -59,8 +62,8 @@ type TypesenseClusterSpec struct {
 type StorageSpec struct {
 
 	// +optional
-	// +kubebuilder:default="1Gi"
-	Size string `json:"size,omitempty"`
+	// +kubebuilder:default="100Mi"
+	Size resource.Quantity `json:"size,omitempty"`
 
 	StorageClassName string `json:"storageClassName"`
 }
@@ -68,7 +71,7 @@ type StorageSpec struct {
 type CorsSpec struct {
 
 	// +optional
-	// +kubebuilder:default=false
+	// +kubebuilder:default=true
 	// +kubebuilder:validation:Type=boolean
 	Enabled bool `json:"enabled,omitempty"`
 
@@ -87,6 +90,7 @@ type TypesenseClusterStatus struct {
 // +kubebuilder:subresource:status
 
 // TypesenseCluster is the Schema for the typesenseclusters API
+// +kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
 // +kubebuilder:printcolumn:name="Replicas",type=integer,JSONPath=`.spec.replicas`
 // +kubebuilder:printcolumn:name="API Port",type=integer,JSONPath=`.spec.apiPort`
 // +kubebuilder:printcolumn:name="Peering Port",type=integer,JSONPath=`.spec.peeringPort`

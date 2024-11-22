@@ -13,6 +13,8 @@ import (
 )
 
 func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.Service, error) {
+	r.logger.Info("reconciling services")
+
 	headlessSvcName := fmt.Sprintf("%s-sts-svc", ts.Name)
 	headlessExists := true
 	headlessObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: headlessSvcName}
@@ -39,11 +41,11 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 	}
 
 	if !headlessExists {
-		r.logger.Info("creating headless service", "service", headlessObjectKey.Name)
+		r.logger.Info("creating headless service", "service", headlessObjectKey)
 
 		headless, err := r.createHeadlessService(ctx, headlessObjectKey, &ts)
 		if err != nil {
-			r.logger.Error(err, "creating headless service failed", "service", headlessObjectKey.Name)
+			r.logger.Error(err, "creating headless service failed", "service", headlessObjectKey)
 			return nil, err
 		}
 
@@ -51,11 +53,11 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 	}
 
 	if !discoExists {
-		r.logger.Info("creating resolver service", "service", discoObjectKey.Name)
+		r.logger.Info("creating resolver service", "service", discoObjectKey)
 
 		headless, err := r.createDiscoService(ctx, discoObjectKey, &ts)
 		if err != nil {
-			r.logger.Error(err, "creating resolver service failed", "service", discoObjectKey.Name)
+			r.logger.Error(err, "creating resolver service failed", "service", discoObjectKey)
 			return nil, err
 		}
 
@@ -80,7 +82,7 @@ func (r *TypesenseClusterReconciler) createHeadlessService(ctx context.Context, 
 			Ports: []v1.ServicePort{
 				{
 					Name:       "http",
-					Port:       ts.Spec.ApiPort,
+					Port:       int32(ts.Spec.ApiPort),
 					TargetPort: intstr.IntOrString{IntVal: 8108},
 				},
 			},
@@ -114,7 +116,7 @@ func (r *TypesenseClusterReconciler) createDiscoService(ctx context.Context, key
 			Ports: []v1.ServicePort{
 				{
 					Name:       "http",
-					Port:       ts.Spec.ApiPort,
+					Port:       int32(ts.Spec.ApiPort),
 					TargetPort: intstr.IntOrString{IntVal: 8108},
 				},
 			},

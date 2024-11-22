@@ -31,11 +31,11 @@ func (r *TypesenseClusterReconciler) ReconcileSecret(ctx context.Context, ts tsv
 	}
 
 	if !secretExists {
-		r.logger.Info("creating admin api key", "secret", secretObjectKey.Name)
+		r.logger.Info("creating admin api key", "secret", secretObjectKey)
 
 		secret, err := r.createAdminApiKey(ctx, secretObjectKey, &ts)
 		if err != nil {
-			r.logger.Error(err, "creating admin api key failed", "secret", secretObjectKey.Name)
+			r.logger.Error(err, "creating admin api key failed", "secret", secretObjectKey)
 			return nil, err
 		}
 
@@ -62,7 +62,7 @@ func (r *TypesenseClusterReconciler) createAdminApiKey(
 		},
 		Type: v1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"token": []byte(token),
+			"typesense-api-key": []byte(token),
 		},
 	}
 

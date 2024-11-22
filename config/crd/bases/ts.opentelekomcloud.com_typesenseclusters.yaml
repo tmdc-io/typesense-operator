@@ -15,6 +15,9 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
+    - jsonPath: .spec.image
+      name: Image
+      type: string
     - jsonPath: .spec.replicas
       name: Replicas
       type: integer
@@ -51,19 +54,19 @@ spec:
             properties:
               apiPort:
                 default: 8108
-                format: int32
                 type: integer
               cors:
                 properties:
                   enabled:
-                    default: false
+                    default: true
                     type: boolean
                   storageClassName:
                     type: string
                 type: object
+              image:
+                type: string
               peeringPort:
                 default: 8107
-                format: int32
                 type: integer
               replicas:
                 default: 3
@@ -71,19 +74,24 @@ spec:
                 minimum: 1
                 type: integer
               resetPeersOnError:
-                default: false
+                default: true
                 type: boolean
               storage:
                 properties:
                   size:
-                    default: 1Gi
-                    type: string
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    default: 100Mi
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
                   storageClassName:
                     type: string
                 required:
                 - storageClassName
                 type: object
             required:
+            - image
             - storage
             type: object
           status:
