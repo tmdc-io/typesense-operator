@@ -21,7 +21,7 @@ func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts 
 		if apierrors.IsNotFound(err) {
 			configMapExists = false
 		} else {
-			r.logger.Error(err, fmt.Sprintf("unable to config map: %s", configMapName))
+			r.logger.Error(err, fmt.Sprintf("unable to fetch config map: %s", configMapName))
 		}
 	}
 

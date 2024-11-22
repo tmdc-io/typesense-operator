@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"time"
 
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 )
@@ -53,6 +54,8 @@ var (
 			return !e.DeleteStateUnknown
 		},
 	})
+
+	requeueAfter = time.Second * 30
 )
 
 // +kubebuilder:rbac:groups=ts.opentelekomcloud.com,resources=typesenseclusters,verbs=get;list;watch;create;update;patch;delete
@@ -82,10 +85,10 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	sa, err := r.ReconcileRbac(ctx, ts)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
+	//sa, err := r.ReconcileRbac(ctx, ts)
+	//if err != nil {
+	//	return ctrl.Result{}, err
+	//}
 
 	secret, err := r.ReconcileSecret(ctx, ts)
 	if err != nil {
@@ -102,12 +105,17 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.ReconcileStatefulSet(ctx, ts, *sa, *secret, *cm, *svc)
+	_, err = r.ReconcileStatefulSet(ctx, ts, *secret, *cm, *svc)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	return ctrl.Result{}, nil
+	err = r.ReconcileRaftQuorum(ctx, ts, *cm)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

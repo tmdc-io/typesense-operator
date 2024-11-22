@@ -18,7 +18,6 @@ import (
 func (r *TypesenseClusterReconciler) ReconcileStatefulSet(
 	ctx context.Context,
 	ts tsv1alpha1.TypesenseCluster,
-	sa corev1.ServiceAccount,
 	secret corev1.Secret,
 	cm corev1.ConfigMap,
 	svc corev1.Service,
@@ -48,7 +47,7 @@ func (r *TypesenseClusterReconciler) ReconcileStatefulSet(
 			ctx,
 			stsObjectKey,
 			&ts,
-			&sa, &secret, &cm, &svc,
+			&secret, &cm, &svc,
 		)
 		if err != nil {
 			r.logger.Error(err, "creating statefulset failed", "sts", stsObjectKey)
@@ -65,7 +64,6 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 	ctx context.Context,
 	key client.ObjectKey,
 	ts *tsv1alpha1.TypesenseCluster,
-	sa *corev1.ServiceAccount,
 	secret *corev1.Secret,
 	cm *corev1.ConfigMap,
 	svc *corev1.Service,
@@ -83,7 +81,7 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: getObjectMeta(ts, &key.Name),
 				Spec: corev1.PodSpec{
-					ServiceAccountName: sa.Name,
+					//ServiceAccountName: sa.Name,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:    ptr.To[int64](10000),
 						FSGroup:      ptr.To[int64](2000),
@@ -92,8 +90,9 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 					TerminationGracePeriodSeconds: ptr.To[int64](300),
 					Containers: []corev1.Container{
 						{
-							Name:  "typesense",
-							Image: ts.Spec.Image,
+							Name:            "typesense",
+							Image:           ts.Spec.Image,
+							ImagePullPolicy: corev1.PullIfNotPresent,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          "http",
