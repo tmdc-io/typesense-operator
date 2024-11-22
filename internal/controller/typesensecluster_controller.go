@@ -18,18 +18,15 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
-	"sigs.k8s.io/controller-runtime/pkg/builder"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"strings"
-
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 )
@@ -86,7 +83,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if ts.Status.ClusterId == nil {
-		err := r.UpdateClusterId(ctx, &ts)
+		err := r.updateClusterId(ctx, &ts)
 		if err != nil {
 			return ctrl.Result{}, err
 		}
@@ -127,25 +124,4 @@ func (r *TypesenseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&tsv1alpha1.TypesenseCluster{}, eventFilters).
 		Complete(r)
-}
-
-func (r *TypesenseClusterReconciler) UpdateClusterId(ctx context.Context, ts *tsv1alpha1.TypesenseCluster) error {
-	patch := client.MergeFrom(ts.DeepCopy())
-
-	clusterId, err := generateSecureRandomString(4)
-	if err != nil {
-		return err
-	}
-	ts.Status.ClusterId = func(s string) *string {
-		l := fmt.Sprint("tsc-", strings.ToLower(s))
-		return &l
-	}(clusterId)
-
-	err = r.Status().Patch(ctx, ts, patch)
-	if err != nil {
-		r.logger.Error(err, "unable to patch sleepcycle status")
-		return err
-	}
-
-	return nil
 }
