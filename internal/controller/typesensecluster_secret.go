@@ -6,13 +6,12 @@ import (
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (r *TypesenseClusterReconciler) ReconcileSecret(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.Secret, error) {
-	secretName := fmt.Sprintf("%s-admin-key", ts.Name)
+	secretName := fmt.Sprintf("%s-admin-key", *ts.Status.ClusterId)
 	secretExists := true
 	r.logger.Info("reconciling admin api key", "secret", secretName)
 
@@ -56,14 +55,8 @@ func (r *TypesenseClusterReconciler) createAdminApiKey(
 	}
 
 	secret := &v1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretObjectKey.Name,
-			Namespace: secretObjectKey.Namespace,
-			Labels: map[string]string{
-				"app": fmt.Sprintf("%s-sts", ts.Name),
-			},
-		},
-		Type: v1.SecretTypeOpaque,
+		ObjectMeta: getObjectMeta(ts, &secretObjectKey.Name),
+		Type:       v1.SecretTypeOpaque,
 		Data: map[string][]byte{
 			"typesense-api-key": []byte(token),
 		},

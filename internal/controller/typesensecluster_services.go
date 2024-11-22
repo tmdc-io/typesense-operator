@@ -6,7 +6,6 @@ import (
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -15,10 +14,10 @@ import (
 func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.Service, error) {
 	r.logger.Info("reconciling services")
 
-	headlessSvcName := fmt.Sprintf("%s-sts-svc", ts.Name)
+	headlessSvcName := fmt.Sprintf("%s-sts-svc", *ts.Status.ClusterId)
 	headlessExists := true
 	headlessObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: headlessSvcName}
-	discoSvcName := fmt.Sprintf("%s-svc", ts.Name)
+	discoSvcName := fmt.Sprintf("%s-svc", *ts.Status.ClusterId)
 	discoExists := true
 	discoObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: discoSvcName}
 
@@ -67,19 +66,11 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 
 func (r *TypesenseClusterReconciler) createHeadlessService(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster) (*v1.Service, error) {
 	svc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-			Labels: map[string]string{
-				"app": fmt.Sprintf("%s-sts", ts.Name),
-			},
-		},
+		ObjectMeta: getObjectMeta(ts, &key.Name),
 		Spec: v1.ServiceSpec{
 			ClusterIP:                v1.ClusterIPNone,
 			PublishNotReadyAddresses: true,
-			Selector: map[string]string{
-				"app": fmt.Sprintf("%s-sts", ts.Name),
-			},
+			Selector:                 getLabels(ts),
 			Ports: []v1.ServicePort{
 				{
 					Name:       "http",
@@ -105,18 +96,10 @@ func (r *TypesenseClusterReconciler) createHeadlessService(ctx context.Context, 
 
 func (r *TypesenseClusterReconciler) createDiscoService(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster) (*v1.Service, error) {
 	svc := &v1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      key.Name,
-			Namespace: key.Namespace,
-			Labels: map[string]string{
-				"app": fmt.Sprintf("%s-sts", ts.Name),
-			},
-		},
+		ObjectMeta: getObjectMeta(ts, &key.Name),
 		Spec: v1.ServiceSpec{
-			Type: v1.ServiceTypeClusterIP,
-			Selector: map[string]string{
-				"app": fmt.Sprintf("%s-sts", ts.Name),
-			},
+			Type:     v1.ServiceTypeClusterIP,
+			Selector: getLabels(ts),
 			Ports: []v1.ServicePort{
 				{
 					Name:       "http",

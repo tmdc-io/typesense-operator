@@ -13,9 +13,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const serviceAccountName = "typesense-operator-sa"
+
 func (r *TypesenseClusterReconciler) ReconcileRbac(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.ServiceAccount, error) {
 	r.logger.Info("reconciling rbac")
-	serviceAccountName := fmt.Sprintf("%s-sa", ts.Name)
+	//serviceAccountName := fmt.Sprintf("%s-sa", ts.Name)
 	perr := fmt.Errorf("reconciling rbac failed")
 
 	ready, err := r.checkRbac(ctx, &ts, serviceAccountName)
@@ -24,7 +26,16 @@ func (r *TypesenseClusterReconciler) ReconcileRbac(ctx context.Context, ts tsv1a
 	}
 
 	if ready {
-		return nil, nil
+		saok := client.ObjectKey{
+			Namespace: ts.Namespace,
+			Name:      serviceAccountName,
+		}
+		var sa v1.ServiceAccount
+		if err := r.Get(ctx, saok, &sa); err != nil {
+			return nil, err
+		}
+
+		return &sa, nil
 	}
 
 	err = r.deleteRbac(ctx, &ts, serviceAccountName)

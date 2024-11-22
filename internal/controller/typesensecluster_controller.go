@@ -18,7 +18,12 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"strings"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -35,6 +40,23 @@ type TypesenseClusterReconciler struct {
 	Scheme *runtime.Scheme
 	logger logr.Logger
 }
+
+var (
+	eventFilters = builder.WithPredicates(predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			// We only need to check generation changes here, because it is only
+			// updated on spec changes. On the other hand RevisionVersion
+			// changes also on status changes. We want to omit reconciliation
+			// for status updates.
+			return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			// DeleteStateUnknown evaluates to false only if the object
+			// has been confirmed as deleted by the api server.
+			return !e.DeleteStateUnknown
+		},
+	})
+)
 
 // +kubebuilder:rbac:groups=ts.opentelekomcloud.com,resources=typesenseclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=ts.opentelekomcloud.com,resources=typesenseclusters/status,verbs=get;update;patch
@@ -63,27 +85,36 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	_, err := r.ReconcileSecret(ctx, ts)
+	if ts.Status.ClusterId == nil {
+		err := r.UpdateClusterId(ctx, &ts)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	r.logger = r.logger.WithValues("cluster-id", *ts.Status.ClusterId)
+
+	sa, err := r.ReconcileRbac(ctx, ts)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.ReconcileRbac(ctx, ts)
+	secret, err := r.ReconcileSecret(ctx, ts)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.ReconcileConfigMap(ctx, ts)
+	cm, err := r.ReconcileConfigMap(ctx, ts)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.ReconcileStatefulSet(ctx, ts)
+	svc, err := r.ReconcileServices(ctx, ts)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.ReconcileServices(ctx, ts)
+	_, err = r.ReconcileStatefulSet(ctx, ts, *sa, *secret, *cm, *svc)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -94,6 +125,27 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 // SetupWithManager sets up the controller with the Manager.
 func (r *TypesenseClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&tsv1alpha1.TypesenseCluster{}).
+		For(&tsv1alpha1.TypesenseCluster{}, eventFilters).
 		Complete(r)
+}
+
+func (r *TypesenseClusterReconciler) UpdateClusterId(ctx context.Context, ts *tsv1alpha1.TypesenseCluster) error {
+	patch := client.MergeFrom(ts.DeepCopy())
+
+	clusterId, err := generateSecureRandomString(4)
+	if err != nil {
+		return err
+	}
+	ts.Status.ClusterId = func(s string) *string {
+		l := fmt.Sprint("tsc-", strings.ToLower(s))
+		return &l
+	}(clusterId)
+
+	err = r.Status().Patch(ctx, ts, patch)
+	if err != nil {
+		r.logger.Error(err, "unable to patch sleepcycle status")
+		return err
+	}
+
+	return nil
 }

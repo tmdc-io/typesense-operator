@@ -84,16 +84,22 @@ type CorsSpec struct {
 type TypesenseClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	ClusterId *string `json:"clusterId,omitempty"`
+	Healthy   bool    `json:"healthy,omitempty"`
+	Ready     bool    `json:"ready,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
 // TypesenseCluster is the Schema for the typesenseclusters API
+// +kubebuilder:printcolumn:name="Cluster ID",type=string,JSONPath=`.status.clusterId`
 // +kubebuilder:printcolumn:name="Image",type=string,JSONPath=`.spec.image`
 // +kubebuilder:printcolumn:name="Replicas",type=integer,JSONPath=`.spec.replicas`
 // +kubebuilder:printcolumn:name="API Port",type=integer,JSONPath=`.spec.apiPort`
 // +kubebuilder:printcolumn:name="Peering Port",type=integer,JSONPath=`.spec.peeringPort`
+// +kubebuilder:printcolumn:name="Healthy",type=string,JSONPath=`.status.healthy`
+// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
 type TypesenseCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
