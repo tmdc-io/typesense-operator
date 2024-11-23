@@ -10,6 +10,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const adminApiKeyName = "typesense-api-key"
+
 func (r *TypesenseClusterReconciler) ReconcileSecret(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.Secret, error) {
 	secretName := fmt.Sprintf("%s-admin-key", ts.Name)
 	secretExists := true
@@ -58,7 +60,7 @@ func (r *TypesenseClusterReconciler) createAdminApiKey(
 		ObjectMeta: getObjectMeta(ts, &secretObjectKey.Name),
 		Type:       v1.SecretTypeOpaque,
 		Data: map[string][]byte{
-			"typesense-api-key": []byte(token),
+			adminApiKeyName: []byte(token),
 		},
 	}
 

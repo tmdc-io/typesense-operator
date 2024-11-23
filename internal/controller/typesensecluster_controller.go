@@ -18,7 +18,9 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
+	"github.com/typesense/typesense-go/v2/typesense"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -105,12 +107,32 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.ReconcileStatefulSet(ctx, ts, *secret, *cm, *svc)
+	sts, err := r.ReconcileStatefulSet(ctx, ts, *secret, *cm, *svc)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	err = r.ReconcileRaftQuorum(ctx, ts, *cm)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	healthy := false
+	if sts.Status.ReadyReplicas == sts.Status.Replicas {
+		healthy = true
+	}
+
+	apiKey := string(secret.Data[adminApiKeyName])
+	tsSvc := fmt.Sprintf("http://%s-svc.%s.svc.cluster.local:%d", ts.Name, ts.Namespace, ts.Spec.ApiPort)
+	tsClient := typesense.NewClient(typesense.WithServer(tsSvc), typesense.WithAPIKey(apiKey))
+
+	ready, err := tsClient.Health(ctx, 10*time.Second)
+	if err != nil {
+		r.logger.Error(err, "health check failed")
+		ready = false
+	}
+
+	err = r.UpdateStatus(ctx, &ts, healthy, ready)
 	if err != nil {
 		return ctrl.Result{}, err
 	}

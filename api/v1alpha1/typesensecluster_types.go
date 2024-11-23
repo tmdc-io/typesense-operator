@@ -84,8 +84,12 @@ type CorsSpec struct {
 type TypesenseClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Healthy bool `json:"healthy,omitempty"`
-	Ready   bool `json:"ready,omitempty"`
+
+	// +kubebuilder:default=false
+	Healthy bool `json:"healthy"`
+
+	// +kubebuilder:default=false
+	Ready bool `json:"ready"`
 }
 
 // +kubebuilder:object:root=true
