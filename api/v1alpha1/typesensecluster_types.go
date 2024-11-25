@@ -90,6 +90,10 @@ type TypesenseClusterStatus struct {
 
 	// +kubebuilder:default=false
 	Ready bool `json:"ready"`
+
+	// +optional
+	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
+	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
 }
 
 // +kubebuilder:object:root=true
@@ -101,7 +105,7 @@ type TypesenseClusterStatus struct {
 // +kubebuilder:printcolumn:name="API Port",type=integer,JSONPath=`.spec.apiPort`
 // +kubebuilder:printcolumn:name="Peering Port",type=integer,JSONPath=`.spec.peeringPort`
 // +kubebuilder:printcolumn:name="Healthy",type=string,JSONPath=`.status.healthy`
-// +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.ready`
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
 type TypesenseCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

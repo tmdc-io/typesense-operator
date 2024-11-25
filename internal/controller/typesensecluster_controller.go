@@ -19,7 +19,7 @@ package controller
 import (
 	"context"
 	"github.com/go-logr/logr"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -37,6 +37,11 @@ type TypesenseClusterReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	logger logr.Logger
+}
+
+type TypesenseClusterReconciliationPhase struct {
+	Name      string
+	Reconcile func(context.Context, *tsv1alpha1.TypesenseCluster) (ctrl.Result, error)
 }
 
 var (
@@ -82,50 +87,56 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	var ts tsv1alpha1.TypesenseCluster
 	if err := r.Get(ctx, req.NamespacedName, &ts); err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
 
-		r.logger.Error(err, "unable to fetch typesense-cluster")
+	err := r.initConditions(ctx, &ts)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	//sa, err := r.ReconcileRbac(ctx, ts)
-	//if err != nil {
-	//	return ctrl.Result{}, err
-	//}
-
 	secret, err := r.ReconcileSecret(ctx, ts)
 	if err != nil {
+		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonSecretNotReady, err)
+		if cerr != nil {
+			err = errors.Wrap(err, cerr.Error())
+		}
 		return ctrl.Result{}, err
 	}
 
 	cm, err := r.ReconcileConfigMap(ctx, ts)
 	if err != nil {
+		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonConfigMapNotReady, err)
+		if cerr != nil {
+			err = errors.Wrap(err, cerr.Error())
+		}
 		return ctrl.Result{}, err
 	}
 
 	svc, err := r.ReconcileServices(ctx, ts)
 	if err != nil {
+		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonServicesNotReady, err)
+		if cerr != nil {
+			err = errors.Wrap(err, cerr.Error())
+		}
 		return ctrl.Result{}, err
 	}
 
 	sts, err := r.ReconcileStatefulSet(ctx, ts, *secret, *cm, *svc)
 	if err != nil {
+		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonStatefulSetNotReady, err)
+		if cerr != nil {
+			err = errors.Wrap(err, cerr.Error())
+		}
 		return ctrl.Result{}, err
 	}
 
-	ready, err := r.ReconcileQuorum(ctx, ts, *cm, *secret)
+	_, err = r.ReconcileQuorum(ctx, ts, *cm, *sts)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	healthy := false
-	if sts.Status.ReadyReplicas == sts.Status.Replicas {
-		healthy = true
-	}
-
-	err = r.UpdateStatus(ctx, &ts, healthy, ready)
+	err = r.setConditionReady(ctx, &ts, ConditionReasonQuorumReady)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
