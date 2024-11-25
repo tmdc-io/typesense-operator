@@ -18,9 +18,7 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"github.com/go-logr/logr"
-	"github.com/typesense/typesense-go/v2/typesense"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -63,6 +61,11 @@ var (
 // +kubebuilder:rbac:groups=ts.opentelekomcloud.com,resources=typesenseclusters,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=ts.opentelekomcloud.com,resources=typesenseclusters/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=ts.opentelekomcloud.com,resources=typesenseclusters/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -112,7 +115,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	err = r.ReconcileRaftQuorum(ctx, ts, *cm)
+	ready, err := r.ReconcileQuorum(ctx, ts, *cm, *secret)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -120,16 +123,6 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	healthy := false
 	if sts.Status.ReadyReplicas == sts.Status.Replicas {
 		healthy = true
-	}
-
-	apiKey := string(secret.Data[adminApiKeyName])
-	tsSvc := fmt.Sprintf("http://%s-svc.%s.svc.cluster.local:%d", ts.Name, ts.Namespace, ts.Spec.ApiPort)
-	tsClient := typesense.NewClient(typesense.WithServer(tsSvc), typesense.WithAPIKey(apiKey))
-
-	ready, err := tsClient.Health(ctx, 10*time.Second)
-	if err != nil {
-		r.logger.Error(err, "health check failed")
-		ready = false
 	}
 
 	err = r.UpdateStatus(ctx, &ts, healthy, ready)
