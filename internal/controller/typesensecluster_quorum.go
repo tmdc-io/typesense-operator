@@ -8,9 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"io/ioutil"
 	appsv1 "k8s.io/api/apps/v1"
-	"k8s.io/utils/ptr"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -22,8 +20,8 @@ type NodeHealthResponse struct {
 func (r *TypesenseClusterReconciler) ReconcileQuorum(ctx context.Context, ts tsv1alpha1.TypesenseCluster, sts appsv1.StatefulSet, nodes []string) (ConditionQuorum, error) {
 	r.logger.Info("reconciling quorum")
 
-	if sts.Status.ReadyReplicas != *sts.Spec.Replicas {
-		return ConditionReasonStatefulSetNotReady, fmt.Errorf("statefulset not ready: %d/%d replicas ready", sts.Status.ReadyReplicas, ts.Spec.Replicas)
+	if sts.Status.ReadyReplicas != sts.Status.Replicas {
+		return ConditionReasonStatefulSetNotReady, fmt.Errorf("statefulset not ready: %d/%d replicas ready", sts.Status.ReadyReplicas, sts.Status.Replicas)
 	}
 
 	condition, err := r.getQuorumHealth(ctx, &ts, nodes, &sts)
@@ -43,8 +41,7 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *ts
 	}
 
 	for _, node := range nodes {
-		node = strings.Replace(node, fmt.Sprintf(":%d", ts.Spec.PeeringPort), "", 1)
-		resp, err := httpClient.Get(fmt.Sprintf("http://%s/health", node))
+		resp, err := httpClient.Get(fmt.Sprintf("http://%s:%d/health", node, ts.Spec.ApiPort))
 		if err != nil {
 			r.logger.Error(err, "health check failed", "node", node)
 			healthResults[node] = false
@@ -82,13 +79,10 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *ts
 	}
 
 	if healthyNodes < minRequiredNodes {
-		if *sts.Spec.Replicas > 1 {
+		if sts.Status.Replicas > 1 {
 			r.logger.Info("downgrading quorum")
 
-			desired := sts.DeepCopy()
-			desired.Spec.Replicas = ptr.To[int32](1)
-
-			err := r.Update(ctx, desired)
+			err := r.scaleStatefulSet(ctx, sts, 1)
 			if err != nil {
 				return ConditionReasonQuorumNotReady, err
 			}
@@ -96,13 +90,10 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *ts
 		}
 		return ConditionReasonQuorumNotReady, fmt.Errorf("quorum has %d healthy nodes, minimum required %d", healthyNodes, minRequiredNodes)
 	} else {
-		if *sts.Spec.Replicas < ts.Spec.Replicas {
+		if sts.Status.Replicas < ts.Spec.Replicas {
 			r.logger.Info("upgrading quorum")
 
-			desired := sts.DeepCopy()
-			desired.Spec.Replicas = ptr.To[int32](ts.Spec.Replicas)
-
-			err := r.Update(ctx, desired)
+			err := r.scaleStatefulSet(ctx, sts, ts.Spec.Replicas)
 			if err != nil {
 				return ConditionReasonQuorumNotReady, err
 			}
@@ -110,4 +101,20 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *ts
 		}
 	}
 	return ConditionReasonQuorumReady, nil
+}
+
+func (r *TypesenseClusterReconciler) scaleStatefulSet(ctx context.Context, sts *appsv1.StatefulSet, desiredReplicas int32) error {
+	if sts.Spec.Replicas != nil && *sts.Spec.Replicas == desiredReplicas {
+		r.logger.Info("statefulset already scaled to desired replicas", "name", sts.Name, "replicas", desiredReplicas)
+		return nil
+	}
+
+	desired := sts.DeepCopy()
+	desired.Spec.Replicas = &desiredReplicas
+	if err := r.Client.Update(ctx, desired); err != nil {
+		r.logger.Error(err, "updating stateful replicas failed", "name", desired.Name)
+		return err
+	}
+
+	return nil
 }

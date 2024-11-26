@@ -152,6 +152,10 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if condition == ConditionReasonQuorumDowngraded || condition == ConditionReasonQuorumUpgraded {
+		_, err := r.ReconcileConfigMap(ctx, ts)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 		requeueAfter = 2 * time.Minute
 	}
 

@@ -16,8 +16,9 @@ func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts 
 	configMapExists := true
 	configMapObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: configMapName}
 
-	var nodes = &v1.ConfigMap{}
-	if err := r.Get(ctx, configMapObjectKey, nodes); err != nil {
+	var err error
+	var cm = &v1.ConfigMap{}
+	if err = r.Get(ctx, configMapObjectKey, cm); err != nil {
 		if apierrors.IsNotFound(err) {
 			configMapExists = false
 		} else {
@@ -28,21 +29,23 @@ func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts 
 	if !configMapExists {
 		r.logger.Info("creating config map", "configmap", configMapObjectKey.Name)
 
-		_, err := r.createConfigMap(ctx, configMapObjectKey, &ts)
+		cm, err = r.createConfigMap(ctx, configMapObjectKey, &ts)
 		if err != nil {
 			r.logger.Error(err, "creating config map failed", "configmap", configMapObjectKey.Name)
 			return nil, err
 		}
 	} else {
-		_, err := r.updateConfigMap(ctx, &ts, nodes)
+		cm, err = r.updateConfigMap(ctx, &ts, cm)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	nodesList := strings.Replace(nodes.Data["nodes"], fmt.Sprintf(":%d:%d", ts.Spec.PeeringPort, ts.Spec.ApiPort), "", 1)
-	nodesSlice := strings.Split(nodesList, ",")
-	return nodesSlice, nil
+	nodes := strings.Split(cm.Data["nodes"], ",")
+	for i := 0; i < len(nodes); i++ {
+		nodes[i] = strings.Replace(nodes[i], fmt.Sprintf(":%d:%d", ts.Spec.PeeringPort, ts.Spec.ApiPort), "", 1)
+	}
+	return nodes, nil
 }
 
 const nodeNameLenLimit = 64
@@ -50,7 +53,7 @@ const nodeNameLenLimit = 64
 func (r *TypesenseClusterReconciler) createConfigMap(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster) (*v1.ConfigMap, error) {
 	nodes := make([]string, ts.Spec.Replicas)
 	for i := 0; i < int(ts.Spec.Replicas); i++ {
-		nodeName := fmt.Sprintf("%s-sts-%d.%s-sts-svc.%s.svc.cluster.local:%d:%d", ts.Name, i, ts.Name, ts.Namespace, ts.Spec.PeeringPort, ts.Spec.ApiPort)
+		nodeName := fmt.Sprintf("%s-sts-%d.%s-sts-svc.%s.svc.cluster.local", ts.Name, i, ts.Name, ts.Namespace)
 		if len(nodeName) > nodeNameLenLimit {
 			return nil, fmt.Errorf("raft error: node name should not exceed %d characters: %s", nodeNameLenLimit, nodeName)
 		}
