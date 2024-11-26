@@ -104,7 +104,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	nodes, err := r.ReconcileConfigMap(ctx, ts)
+	_, err = r.ReconcileConfigMap(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonConfigMapNotReady, err)
 		if cerr != nil {
@@ -131,7 +131,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	condition, err := r.ReconcileQuorum(ctx, ts, *sts, nodes)
+	condition, err := r.ReconcileQuorum(ctx, ts, *sts)
 	if err != nil {
 		r.logger.Error(err, "reconciling quorum failed")
 	}
@@ -152,10 +152,6 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	if condition == ConditionReasonQuorumDowngraded || condition == ConditionReasonQuorumUpgraded {
-		_, err := r.ReconcileConfigMap(ctx, ts)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
 		requeueAfter = 2 * time.Minute
 	}
 

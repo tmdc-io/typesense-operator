@@ -17,9 +17,6 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 	headlessSvcName := fmt.Sprintf("%s-sts-svc", ts.Name)
 	headlessExists := true
 	headlessObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: headlessSvcName}
-	discoSvcName := fmt.Sprintf("%s-svc", ts.Name)
-	discoExists := true
-	discoObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: discoSvcName}
 
 	var headless = &v1.Service{}
 	if err := r.Get(ctx, headlessObjectKey, headless); err != nil {
@@ -27,15 +24,6 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 			headlessExists = false
 		} else {
 			r.logger.Error(err, fmt.Sprintf("unable to fetch service: %s", headlessSvcName))
-		}
-	}
-
-	var disco = &v1.Service{}
-	if err := r.Get(ctx, discoObjectKey, disco); err != nil {
-		if apierrors.IsNotFound(err) {
-			discoExists = false
-		} else {
-			r.logger.Error(err, fmt.Sprintf("unable to fetch service: %s", discoSvcName))
 		}
 	}
 
@@ -49,15 +37,29 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 		}
 	}
 
-	if !discoExists {
-		r.logger.Info("creating resolver service", "service", discoObjectKey)
+	svcName := fmt.Sprintf("%s-svc", ts.Name)
+	svcExists := true
+	svcObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: svcName}
 
-		_, err := r.createDiscoService(ctx, discoObjectKey, &ts)
+	var svc = &v1.Service{}
+	if err := r.Get(ctx, svcObjectKey, svc); err != nil {
+		if apierrors.IsNotFound(err) {
+			svcExists = false
+		} else {
+			r.logger.Error(err, fmt.Sprintf("unable to fetch service: %s", svcName))
+		}
+	}
+
+	if !svcExists {
+		r.logger.Info("creating resolver service", "service", svcObjectKey)
+
+		_, err := r.createService(ctx, svcObjectKey, &ts)
 		if err != nil {
-			r.logger.Error(err, "creating resolver service failed", "service", discoObjectKey)
+			r.logger.Error(err, "creating resolver service failed", "service", svcObjectKey)
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -91,7 +93,7 @@ func (r *TypesenseClusterReconciler) createHeadlessService(ctx context.Context, 
 	return svc, nil
 }
 
-func (r *TypesenseClusterReconciler) createDiscoService(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster) (*v1.Service, error) {
+func (r *TypesenseClusterReconciler) createService(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster) (*v1.Service, error) {
 	svc := &v1.Service{
 		ObjectMeta: getObjectMeta(ts, &key.Name),
 		Spec: v1.ServiceSpec{

@@ -77,7 +77,7 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 						FSGroup:      ptr.To[int64](2000),
 						RunAsGroup:   ptr.To[int64](3000),
 						RunAsNonRoot: ptr.To[bool](true)},
-					TerminationGracePeriodSeconds: ptr.To[int64](300),
+					TerminationGracePeriodSeconds: ptr.To[int64](5),
 					Containers: []corev1.Container{
 						{
 							Name:            "typesense",

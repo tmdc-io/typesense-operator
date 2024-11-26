@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,7 +36,7 @@ func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts 
 			return nil, err
 		}
 	} else {
-		cm, err = r.updateConfigMap(ctx, &ts, cm)
+		cm, err = r.updateConfigMap(ctx, &ts, cm, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -51,14 +52,9 @@ func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts 
 const nodeNameLenLimit = 64
 
 func (r *TypesenseClusterReconciler) createConfigMap(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster) (*v1.ConfigMap, error) {
-	nodes := make([]string, ts.Spec.Replicas)
-	for i := 0; i < int(ts.Spec.Replicas); i++ {
-		nodeName := fmt.Sprintf("%s-sts-%d.%s-sts-svc.%s.svc.cluster.local", ts.Name, i, ts.Name, ts.Namespace)
-		if len(nodeName) > nodeNameLenLimit {
-			return nil, fmt.Errorf("raft error: node name should not exceed %d characters: %s", nodeNameLenLimit, nodeName)
-		}
-
-		nodes[i] = fmt.Sprintf("%s:%d:%d", nodeName, ts.Spec.PeeringPort, ts.Spec.ApiPort)
+	nodes, err := r.getNodes(ts, ts.Spec.Replicas)
+	if err != nil {
+		return nil, err
 	}
 
 	cm := &v1.ConfigMap{
@@ -68,7 +64,7 @@ func (r *TypesenseClusterReconciler) createConfigMap(ctx context.Context, key cl
 		},
 	}
 
-	err := ctrl.SetControllerReference(ts, cm, r.Scheme)
+	err = ctrl.SetControllerReference(ts, cm, r.Scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -81,21 +77,41 @@ func (r *TypesenseClusterReconciler) createConfigMap(ctx context.Context, key cl
 	return cm, nil
 }
 
-func (r *TypesenseClusterReconciler) updateConfigMap(ctx context.Context, ts *tsv1alpha1.TypesenseCluster, cm *v1.ConfigMap) (*v1.ConfigMap, error) {
-	nodes := make([]string, 0)
-	pods, err := r.getPods(ctx, ts)
-	if err != nil {
-		return nil, err
+func (r *TypesenseClusterReconciler) updateConfigMap(ctx context.Context, ts *tsv1alpha1.TypesenseCluster, cm *v1.ConfigMap, replicas *int32) (*v1.ConfigMap, error) {
+	//nodes := make([]string, 0)
+	//pods, err := r.getPods(ctx, ts)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//desired := cm.DeepCopy()
+	//
+	//for _, pod := range pods.Items {
+	//	for _, container := range pod.Spec.Containers {
+	//		if container.Name == "typesense" && strings.TrimSpace(pod.Status.PodIP) != "" && pod.Status.ContainerStatuses[0].Ready {
+	//			nodes = append(nodes, fmt.Sprintf("%s:%d:%d", pod.Status.PodIP, ts.Spec.PeeringPort, ts.Spec.ApiPort))
+	//		}
+	//	}
+	//}
+
+	stsName := fmt.Sprintf("%s-sts", ts.Name)
+	stsObjectKey := client.ObjectKey{
+		Name:      stsName,
+		Namespace: ts.Namespace,
 	}
 
-	desired := cm.DeepCopy()
+	var sts = &appsv1.StatefulSet{}
+	if err := r.Get(ctx, stsObjectKey, sts); err != nil {
+		r.logger.Error(err, fmt.Sprintf("unable to fetch statefulset: %s", stsName))
+	}
 
-	for _, pod := range pods.Items {
-		for _, container := range pod.Spec.Containers {
-			if container.Name == "typesense" && strings.TrimSpace(pod.Status.PodIP) != "" && pod.Status.ContainerStatuses[0].Ready {
-				nodes = append(nodes, fmt.Sprintf("%s:%d:%d", pod.Status.PodIP, ts.Spec.PeeringPort, ts.Spec.ApiPort))
-			}
-		}
+	if replicas == nil {
+		replicas = sts.Spec.Replicas
+	}
+
+	nodes, err := r.getNodes(ts, *replicas)
+	if err != nil {
+		return nil, err
 	}
 
 	availableNodes := len(nodes)
@@ -104,6 +120,7 @@ func (r *TypesenseClusterReconciler) updateConfigMap(ctx context.Context, ts *ts
 		return nil, fmt.Errorf("empty quorum configuration")
 	}
 
+	desired := cm.DeepCopy()
 	desired.Data = map[string]string{
 		"nodes": strings.Join(nodes, ","),
 	}
@@ -142,4 +159,18 @@ func (r *TypesenseClusterReconciler) getPods(ctx context.Context, ts *tsv1alpha1
 	}
 
 	return pods, nil
+}
+
+func (r *TypesenseClusterReconciler) getNodes(ts *tsv1alpha1.TypesenseCluster, replicas int32) ([]string, error) {
+	nodes := make([]string, replicas)
+	for i := 0; i < int(replicas); i++ {
+		nodeName := fmt.Sprintf("%s-sts-%d.%s-sts-svc.%s.svc.cluster.local", ts.Name, i, ts.Name, ts.Namespace)
+		if len(nodeName) > nodeNameLenLimit {
+			return nil, fmt.Errorf("raft error: node name should not exceed %d characters: %s", nodeNameLenLimit, nodeName)
+		}
+
+		nodes[i] = fmt.Sprintf("%s:%d:%d", nodeName, ts.Spec.PeeringPort, ts.Spec.ApiPort)
+	}
+
+	return nodes, nil
 }
