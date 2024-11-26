@@ -7,20 +7,22 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+type ConditionQuorum string
+
 // Definitions to manage status conditions
 const (
-	ConditionTypeReady                = "Ready"
-	ConditionTypeTypesenseQuorumReady = "QuorumReady"
+	ConditionTypeReady = "Ready"
 
-	ConditionReasonReconciliationInProgress = "ReconciliationInProgress"
-	ConditionReasonSecretNotReady           = "SecretNotReady"
-	ConditionReasonConfigMapNotReady        = "ConfigMapNotReady"
-	ConditionReasonServicesNotReady         = "ServicesNotReady"
-	ConditionReasonQuorumReady              = "QuorumReady"
-	ConditionReasonQuorumNotReady           = "QuorumNotReady"
-	ConditionReasonQuorumDegraded           = "QuorumDegraded"
-	ConditionReasonQuorumNeedsAttention     = "QuorumNeedsAttention"
-	ConditionReasonStatefulSetNotReady      = "StatefulSetNotReady"
+	ConditionReasonReconciliationInProgress                 = "ReconciliationInProgress"
+	ConditionReasonSecretNotReady                           = "SecretNotReady"
+	ConditionReasonConfigMapNotReady                        = "ConfigMapNotReady"
+	ConditionReasonServicesNotReady                         = "ServicesNotReady"
+	ConditionReasonQuorumReady              ConditionQuorum = "QuorumReady"
+	ConditionReasonQuorumNotReady           ConditionQuorum = "QuorumNotReady"
+	ConditionReasonQuorumDowngraded         ConditionQuorum = "QuorumDowngraded"
+	ConditionReasonQuorumUpgraded           ConditionQuorum = "QuorumUpgraded"
+	ConditionReasonQuorumNeedsAttention     ConditionQuorum = "QuorumNeedsAttention"
+	ConditionReasonStatefulSetNotReady                      = "StatefulSetNotReady"
 
 	InitReconciliationMessage = "Starting reconciliation"
 	UpdateStatusMessageFailed = "failed to update typesense cluster status"

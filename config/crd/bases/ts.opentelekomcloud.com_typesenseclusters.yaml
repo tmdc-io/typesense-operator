@@ -27,9 +27,6 @@ spec:
     - jsonPath: .spec.peeringPort
       name: Peering Port
       type: integer
-    - jsonPath: .status.healthy
-      name: Healthy
-      type: string
     - jsonPath: .status.conditions[?(@.type=="Ready")].status
       name: Ready
       type: string
@@ -172,15 +169,6 @@ spec:
                   - type
                   type: object
                 type: array
-              healthy:
-                default: false
-                type: boolean
-              ready:
-                default: false
-                type: boolean
-            required:
-            - healthy
-            - ready
             type: object
         type: object
     served: true

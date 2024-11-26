@@ -131,14 +131,37 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.ReconcileQuorum(ctx, ts, *cm, *sts)
+	condition, err := r.ReconcileQuorum(ctx, ts, *cm, *sts)
 	if err != nil {
-		return ctrl.Result{}, err
+		r.logger.Error(err, "reconciling quorum failed")
+	}
+	//
+	//switch condition {
+	//case ConditionReasonServicesNotReady:
+	//	return ctrl.Result{RequeueAfter: requeueAfter}, err
+	//default:
+	//	if err != nil {
+	//		return ctrl.Result{}, err
+	//	}
+	//}
+
+	if condition != ConditionReasonQuorumReady {
+		if err == nil {
+			err = errors.New("quorum is not ready")
+		}
+		cerr := r.setConditionNotReady(ctx, &ts, string(condition), err)
+		if cerr != nil {
+			return ctrl.Result{}, cerr
+		}
+	} else {
+		cerr := r.setConditionReady(ctx, &ts, string(condition))
+		if cerr != nil {
+			return ctrl.Result{}, cerr
+		}
 	}
 
-	err = r.setConditionReady(ctx, &ts, ConditionReasonQuorumReady)
-	if err != nil {
-		return ctrl.Result{}, err
+	if condition == ConditionReasonQuorumDowngraded || condition == ConditionReasonQuorumUpgraded {
+		requeueAfter = 2 * time.Minute
 	}
 
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil

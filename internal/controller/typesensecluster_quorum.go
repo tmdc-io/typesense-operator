@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/utils/ptr"
 	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
@@ -20,9 +21,28 @@ type NodeHealthResponse struct {
 	ResourceError string `json:"resource_error"`
 }
 
-func (r *TypesenseClusterReconciler) ReconcileQuorum(ctx context.Context, ts tsv1alpha1.TypesenseCluster, cm v1.ConfigMap, sts appsv1.StatefulSet) (bool, error) {
+func (r *TypesenseClusterReconciler) ReconcileQuorum(ctx context.Context, ts tsv1alpha1.TypesenseCluster, cm v1.ConfigMap, sts appsv1.StatefulSet) (ConditionQuorum, error) {
 	r.logger.Info("reconciling quorum")
 
+	if sts.Status.ReadyReplicas != *sts.Spec.Replicas {
+		return ConditionReasonStatefulSetNotReady, fmt.Errorf("statefulset not ready: %d/%d replicas ready", sts.Status.ReadyReplicas, ts.Spec.Replicas)
+	}
+
+	pods, err := r.getQuorumPods(ctx, ts)
+	if err != nil {
+		return ConditionReasonQuorumNotReady, err
+	}
+
+	nodes, err := r.updateQuorumConfiguration(ctx, ts, cm, pods)
+	if err != nil {
+		return ConditionReasonQuorumNotReady, err
+	}
+
+	condition, err := r.getQuorumHealth(ctx, &ts, nodes, &sts)
+	return condition, err
+}
+
+func (r *TypesenseClusterReconciler) getQuorumPods(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.PodList, error) {
 	listOptions := []client.ListOption{
 		client.InNamespace(ts.Namespace),
 		client.MatchingLabels(getLabels(&ts)),
@@ -32,16 +52,19 @@ func (r *TypesenseClusterReconciler) ReconcileQuorum(ctx context.Context, ts tsv
 	err := r.List(ctx, pods, listOptions...)
 	if err != nil {
 		r.logger.Error(err, "failed to list quorum pods")
-		return false, err
+		return nil, err
 	}
 
 	if len(pods.Items) == 0 {
 		r.logger.Info("no pods found in quorum")
-		return false, nil
+		return nil, fmt.Errorf("no pods found in quorum")
 	}
 
+	return pods, nil
+}
+
+func (r *TypesenseClusterReconciler) updateQuorumConfiguration(ctx context.Context, ts tsv1alpha1.TypesenseCluster, cm v1.ConfigMap, pods *v1.PodList) (nodes []string, err error) {
 	desired := cm.DeepCopy()
-	var nodes []string
 
 	for _, pod := range pods.Items {
 		for _, container := range pod.Spec.Containers {
@@ -54,7 +77,7 @@ func (r *TypesenseClusterReconciler) ReconcileQuorum(ctx context.Context, ts tsv
 	availableNodes := len(nodes)
 	if availableNodes == 0 {
 		r.logger.Info("empty quorum configuration")
-		return false, nil
+		return nil, fmt.Errorf("empty quorum configuration")
 	}
 
 	desired.Data = map[string]string{
@@ -68,29 +91,24 @@ func (r *TypesenseClusterReconciler) ReconcileQuorum(ctx context.Context, ts tsv
 
 		err := r.Update(ctx, desired)
 		if err != nil {
-			r.logger.Error(err, "reconciling raft quorum failed")
-			return false, err
+			r.logger.Error(err, "updating quorum configuration failed")
+			return nil, err
 		}
 	}
 
-	ready, err := r.getQuorumHealth(&ts, nodes)
-	if err != nil {
-		return false, nil
-	}
-
-	return ready, nil
+	return nodes, nil
 }
 
-func (r *TypesenseClusterReconciler) getQuorumHealth(ts *tsv1alpha1.TypesenseCluster, nodes []string) (bool, error) {
+func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *tsv1alpha1.TypesenseCluster, nodes []string, sts *appsv1.StatefulSet) (ConditionQuorum, error) {
 	availableNodes := len(nodes)
-	minRequiredNodes := (availableNodes - 1) / 2
+	minRequiredNodes := (availableNodes-1)/2 + 1
 	if availableNodes < minRequiredNodes {
-		return false, nil
+		return ConditionReasonQuorumNotReady, fmt.Errorf("quorum has less than minimum %d available nodes", minRequiredNodes)
 	}
 
 	healthResults := make(map[string]bool, availableNodes)
 	httpClient := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout: 500 * time.Millisecond,
 	}
 
 	for _, node := range nodes {
@@ -136,12 +154,40 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ts *tsv1alpha1.TypesenseClu
 		if !healthy {
 			healthyNodes--
 		}
+	}
 
-		if healthyNodes < minRequiredNodes {
-			return false, nil
+	if healthyNodes < minRequiredNodes {
+		if *sts.Spec.Replicas > 1 {
+			r.logger.Info("downgrading quorum")
+
+			desired := sts.DeepCopy()
+			desired.Spec.Replicas = ptr.To[int32](1)
+
+			err := r.Update(ctx, desired)
+			if err != nil {
+				return ConditionReasonQuorumNotReady, err
+			}
+
+			return ConditionReasonQuorumDowngraded, nil
+		}
+
+		return ConditionReasonQuorumNotReady, fmt.Errorf("quorum has %d healthy nodes, minimum required %d", healthyNodes, minRequiredNodes)
+	} else {
+		if *sts.Spec.Replicas < ts.Spec.Replicas {
+			r.logger.Info("upgrading quorum")
+
+			desired := sts.DeepCopy()
+			desired.Spec.Replicas = ptr.To[int32](ts.Spec.Replicas)
+
+			err := r.Update(ctx, desired)
+			if err != nil {
+				return ConditionReasonQuorumNotReady, err
+			}
+
+			return ConditionReasonQuorumUpgraded, nil
 		}
 	}
 
-	return true, nil
+	return ConditionReasonQuorumReady, nil
 
 }

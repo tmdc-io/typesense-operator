@@ -85,12 +85,6 @@ type TypesenseClusterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// +kubebuilder:default=false
-	Healthy bool `json:"healthy"`
-
-	// +kubebuilder:default=false
-	Ready bool `json:"ready"`
-
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}
 	Conditions []metav1.Condition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,1,rep,name=conditions"`
@@ -104,7 +98,6 @@ type TypesenseClusterStatus struct {
 // +kubebuilder:printcolumn:name="Replicas",type=integer,JSONPath=`.spec.replicas`
 // +kubebuilder:printcolumn:name="API Port",type=integer,JSONPath=`.spec.apiPort`
 // +kubebuilder:printcolumn:name="Peering Port",type=integer,JSONPath=`.spec.peeringPort`
-// +kubebuilder:printcolumn:name="Healthy",type=string,JSONPath=`.status.healthy`
 // +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
 type TypesenseCluster struct {
 	metav1.TypeMeta   `json:",inline"`
