@@ -11,7 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.Service, error) {
+func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts tsv1alpha1.TypesenseCluster) error {
 	r.logger.Info("reconciling services")
 
 	headlessSvcName := fmt.Sprintf("%s-sts-svc", ts.Name)
@@ -21,8 +21,8 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 	discoExists := true
 	discoObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: discoSvcName}
 
-	var headless v1.Service
-	if err := r.Get(ctx, headlessObjectKey, &headless); err != nil {
+	var headless = &v1.Service{}
+	if err := r.Get(ctx, headlessObjectKey, headless); err != nil {
 		if apierrors.IsNotFound(err) {
 			headlessExists = false
 		} else {
@@ -30,8 +30,8 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 		}
 	}
 
-	var disco v1.Service
-	if err := r.Get(ctx, discoObjectKey, &disco); err != nil {
+	var disco = &v1.Service{}
+	if err := r.Get(ctx, discoObjectKey, disco); err != nil {
 		if apierrors.IsNotFound(err) {
 			discoExists = false
 		} else {
@@ -42,13 +42,11 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 	if !headlessExists {
 		r.logger.Info("creating headless service", "service", headlessObjectKey)
 
-		svc, err := r.createHeadlessService(ctx, headlessObjectKey, &ts)
+		_, err := r.createHeadlessService(ctx, headlessObjectKey, &ts)
 		if err != nil {
 			r.logger.Error(err, "creating headless service failed", "service", headlessObjectKey)
-			return nil, err
+			return err
 		}
-
-		headless = *svc
 	}
 
 	if !discoExists {
@@ -57,11 +55,10 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 		_, err := r.createDiscoService(ctx, discoObjectKey, &ts)
 		if err != nil {
 			r.logger.Error(err, "creating resolver service failed", "service", discoObjectKey)
-			return nil, err
+			return err
 		}
 	}
-
-	return &headless, nil
+	return nil
 }
 
 func (r *TypesenseClusterReconciler) createHeadlessService(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster) (*v1.Service, error) {

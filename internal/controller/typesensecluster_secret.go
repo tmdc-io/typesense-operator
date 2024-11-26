@@ -12,7 +12,7 @@ import (
 
 const adminApiKeyName = "typesense-api-key"
 
-func (r *TypesenseClusterReconciler) ReconcileSecret(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*v1.Secret, error) {
+func (r *TypesenseClusterReconciler) ReconcileSecret(ctx context.Context, ts tsv1alpha1.TypesenseCluster) error {
 	secretName := fmt.Sprintf("%s-admin-key", ts.Name)
 	secretExists := true
 	r.logger.Info("reconciling api key")
@@ -22,8 +22,8 @@ func (r *TypesenseClusterReconciler) ReconcileSecret(ctx context.Context, ts tsv
 		Name:      secretName,
 	}
 
-	var secret v1.Secret
-	if err := r.Get(ctx, secretObjectKey, &secret); err != nil {
+	var secret = &v1.Secret{}
+	if err := r.Get(ctx, secretObjectKey, secret); err != nil {
 		if apierrors.IsNotFound(err) {
 			secretExists = false
 		} else {
@@ -34,16 +34,14 @@ func (r *TypesenseClusterReconciler) ReconcileSecret(ctx context.Context, ts tsv
 	if !secretExists {
 		r.logger.Info("creating admin api key", "secret", secretObjectKey)
 
-		secret, err := r.createAdminApiKey(ctx, secretObjectKey, &ts)
+		_, err := r.createAdminApiKey(ctx, secretObjectKey, &ts)
 		if err != nil {
 			r.logger.Error(err, "creating admin api key failed", "secret", secretObjectKey)
-			return nil, err
+			return err
 		}
-
-		return secret, nil
+		return nil
 	}
-
-	return &secret, nil
+	return nil
 }
 
 func (r *TypesenseClusterReconciler) createAdminApiKey(

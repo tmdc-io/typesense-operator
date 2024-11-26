@@ -95,7 +95,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	secret, err := r.ReconcileSecret(ctx, ts)
+	err = r.ReconcileSecret(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonSecretNotReady, err)
 		if cerr != nil {
@@ -104,7 +104,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	cm, err := r.ReconcileConfigMap(ctx, ts)
+	nodes, err := r.ReconcileConfigMap(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonConfigMapNotReady, err)
 		if cerr != nil {
@@ -113,7 +113,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	svc, err := r.ReconcileServices(ctx, ts)
+	err = r.ReconcileServices(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonServicesNotReady, err)
 		if cerr != nil {
@@ -122,7 +122,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	sts, err := r.ReconcileStatefulSet(ctx, ts, *secret, *cm, *svc)
+	sts, err := r.ReconcileStatefulSet(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonStatefulSetNotReady, err)
 		if cerr != nil {
@@ -131,19 +131,10 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	condition, err := r.ReconcileQuorum(ctx, ts, *cm, *sts)
+	condition, err := r.ReconcileQuorum(ctx, ts, *sts, nodes)
 	if err != nil {
 		r.logger.Error(err, "reconciling quorum failed")
 	}
-	//
-	//switch condition {
-	//case ConditionReasonServicesNotReady:
-	//	return ctrl.Result{RequeueAfter: requeueAfter}, err
-	//default:
-	//	if err != nil {
-	//		return ctrl.Result{}, err
-	//	}
-	//}
 
 	if condition != ConditionReasonQuorumReady {
 		if err == nil {

@@ -18,9 +18,6 @@ import (
 func (r *TypesenseClusterReconciler) ReconcileStatefulSet(
 	ctx context.Context,
 	ts tsv1alpha1.TypesenseCluster,
-	secret corev1.Secret,
-	cm corev1.ConfigMap,
-	svc corev1.Service,
 ) (*appsv1.StatefulSet, error) {
 	r.logger.Info("reconciling statefulset")
 
@@ -31,8 +28,8 @@ func (r *TypesenseClusterReconciler) ReconcileStatefulSet(
 		Namespace: ts.Namespace,
 	}
 
-	var sts appsv1.StatefulSet
-	if err := r.Get(ctx, stsObjectKey, &sts); err != nil {
+	var sts = &appsv1.StatefulSet{}
+	if err := r.Get(ctx, stsObjectKey, sts); err != nil {
 		if apierrors.IsNotFound(err) {
 			stsExists = false
 		} else {
@@ -47,32 +44,26 @@ func (r *TypesenseClusterReconciler) ReconcileStatefulSet(
 			ctx,
 			stsObjectKey,
 			&ts,
-			&secret, &cm, &svc,
 		)
 		if err != nil {
 			r.logger.Error(err, "creating statefulset failed", "sts", stsObjectKey)
 			return nil, err
 		}
-
 		return sts, nil
 	}
-
-	return &sts, nil
+	return sts, nil
 }
 
 func (r *TypesenseClusterReconciler) createStatefulSet(
 	ctx context.Context,
 	key client.ObjectKey,
 	ts *tsv1alpha1.TypesenseCluster,
-	secret *corev1.Secret,
-	cm *corev1.ConfigMap,
-	svc *corev1.Service,
 ) (*appsv1.StatefulSet, error) {
 	sts := &appsv1.StatefulSet{
 		TypeMeta:   metav1.TypeMeta{},
 		ObjectMeta: getObjectMeta(ts, &key.Name),
 		Spec: appsv1.StatefulSetSpec{
-			ServiceName:         svc.Name,
+			ServiceName:         fmt.Sprintf("%s-sts-svc", ts.Name),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
 			Replicas:            ptr.To[int32](ts.Spec.Replicas),
 			Selector: &metav1.LabelSelector{
@@ -81,7 +72,6 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: getObjectMeta(ts, &key.Name),
 				Spec: corev1.PodSpec{
-					//ServiceAccountName: sa.Name,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:    ptr.To[int64](10000),
 						FSGroup:      ptr.To[int64](2000),
@@ -106,7 +96,7 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 										SecretKeyRef: &corev1.SecretKeySelector{
 											Key: "typesense-api-key",
 											LocalObjectReference: corev1.LocalObjectReference{
-												Name: secret.Name,
+												Name: fmt.Sprintf("%s-admin-key", ts.Name),
 											},
 										},
 									},
@@ -168,7 +158,7 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: cm.Name,
+										Name: fmt.Sprintf("%s-nodeslist", ts.Name),
 									},
 								},
 							},
