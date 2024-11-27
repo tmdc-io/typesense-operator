@@ -12,12 +12,11 @@ import (
 	"strings"
 )
 
-func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts tsv1alpha1.TypesenseCluster) ([]string, error) {
+func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (updated *bool, err error) {
 	configMapName := fmt.Sprintf("%s-nodeslist", ts.Name)
 	configMapExists := true
 	configMapObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: configMapName}
 
-	var err error
 	var cm = &v1.ConfigMap{}
 	if err = r.Get(ctx, configMapObjectKey, cm); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -46,7 +45,7 @@ func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts 
 	for i := 0; i < len(nodes); i++ {
 		nodes[i] = strings.Replace(nodes[i], fmt.Sprintf(":%d:%d", ts.Spec.PeeringPort, ts.Spec.ApiPort), "", 1)
 	}
-	return nodes, nil
+	return &configMapExists, nil
 }
 
 const nodeNameLenLimit = 64

@@ -104,7 +104,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	_, err = r.ReconcileConfigMap(ctx, ts)
+	updated, err := r.ReconcileConfigMap(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonConfigMapNotReady, err)
 		if cerr != nil {
@@ -131,29 +131,34 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	condition, err := r.ReconcileQuorum(ctx, ts, *sts)
-	if err != nil {
-		r.logger.Error(err, "reconciling quorum failed")
+	condition := ConditionReasonQuorumReady
+	if *updated {
+		condition, err = r.ReconcileQuorum(ctx, ts, *sts)
+		if err != nil {
+			r.logger.Error(err, "reconciling quorum failed")
+		}
+
+		if condition != ConditionReasonQuorumReady {
+			if err == nil {
+				err = errors.New("quorum is not ready")
+			}
+			cerr := r.setConditionNotReady(ctx, &ts, string(condition), err)
+			if cerr != nil {
+				return ctrl.Result{}, cerr
+			}
+		} else {
+			cerr := r.setConditionReady(ctx, &ts, string(condition))
+			if cerr != nil {
+				return ctrl.Result{}, cerr
+			}
+		}
 	}
 
-	if condition != ConditionReasonQuorumReady {
-		if err == nil {
-			err = errors.New("quorum is not ready")
-		}
-		cerr := r.setConditionNotReady(ctx, &ts, string(condition), err)
-		if cerr != nil {
-			return ctrl.Result{}, cerr
-		}
-	} else {
-		cerr := r.setConditionReady(ctx, &ts, string(condition))
-		if cerr != nil {
-			return ctrl.Result{}, cerr
-		}
-	}
+	requeueAfter = 3 * time.Minute
 
-	if condition == ConditionReasonQuorumDowngraded || condition == ConditionReasonQuorumUpgraded {
-		requeueAfter = 2 * time.Minute
-	}
+	//if condition == ConditionReasonQuorumDowngraded || condition == ConditionReasonQuorumUpgraded {
+	//	requeueAfter = 2 * time.Minute
+	//}
 
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }
