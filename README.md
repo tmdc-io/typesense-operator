@@ -76,9 +76,7 @@ and a normal Kubernetes `Service` of type `ClusterIP` that we will use to expose
 under the `/usr/share/typesense/nodelist`. No `Pod` reloading is required when changes happen to the `ConfigMap`, raft will
 pick up the changes automatically.
 
-
-![image](https://github.com/user-attachments/assets/9028a0f8-5ae5-4f9e-a83c-8a7e8f0e2f25)
-
+![image](https://github.com/user-attachments/assets/79516a1f-f6ab-420e-8ad8-f7b916dd2679)
 
 > [!NOTE]
 > The interval of the reconciliation loops depends on the number of nodes, trying that way to give raft adequate 'breathing room'
