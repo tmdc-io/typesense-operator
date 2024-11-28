@@ -9,11 +9,11 @@ Key features of Typesense Kubernetes Operator include:
 
 - **Custom Resource Management**: Provides a Kubernetes-native interface to define and manage Typesense cluster configurations using a CRD named `TypesenseCluster`.
 - **Typesense Lifecycle Automation**: Simplifies deploying, scaling, and managing Typesense clusters. Handles aspects like:
-    - Typesense bootstrapping and Admin API Key creation as a `Secret`,
-    - Typesense deployment as a `StatefulSet`,
-    - Typesense services (headless & discovery `Services`),
-    - Typesense nodes list **active** discovery (quorum configuration mounted as `ConfigMap`),
-    - Typesense filesystem as `PersistentVolumes`
+    - bootstrap Typesense's Admin API Key creation as a `Secret`,
+    - deploy Typesense as a `StatefulSet`,
+    - provision Typesense services (headless & discovery `Services`),
+    - actively discover and update Typesense's nodes list (quorum configuration mounted as `ConfigMap`),
+    - place claims for Typesense `PersistentVolumes`
 - **Raft Lifecycle Automation**:
     - Continuous active (re)discovery of the quorum configuration reacting to changes in `ReplicaSet` **without the need of an additional sidecar container**,
     - Automatic recovery of a cluster that has lost quorum **without the need of manual intervention**.
@@ -87,10 +87,39 @@ an action plan for the next reconciliation loop according to the outcome. This i
 
 ### Problem 2: Recovering a cluster that has lost quorum
 
+**North Path:**
 
+1. Quorum reconciler is probing every node of the cluster at `http://{nodeUrl}:{api-port}/health`. If every node returns
+`{ ok: true }` then the `ConditionReady` condition of the `TypesenseCluster` custom resource is set to `QuorumReady` which means the cluster 
+is 100% healthy and ready to go.
+2.
+   - If the cluster size has already the desired size defined by the `TypesenseCluster` custom resource (in case was not downgraded during 
+   another loop; we will explore that option later) the quorum reconciliation loop marks the `ConditionReady` condition of the `TypesenseCluster` 
+   custom resource is set to `QuorumReady`exits and returns back to the controller loop.
+   - If the cluster has been downgraded to a single instance during a previous reconciliation loop, the the quorum reconciliation 
+   loop set the `ConditionReady` condition of the `TypesenseCluster` as `QuorumUpgraded` and returns control back to the controller loop
+   which will attempt, in its next reconciliation loop, to restore the cluster size to the desired size defined by the `TypesenseCluster` custom resource,
+   and let raft to identify the new quorum configuration and elect a new leader.
+
+**South Path:**
+
+1. Quorum reconciler is probing every node of the cluster at `http://{nodeUrl}:{api-port}/health`. 
+    - If the required number of nodes (minimum `(N-1)/2`) return `{ ok: true }` then the `ConditionReady` condition of the `TypesenseCluster` custom resource is set to `QuorumReady` which means the cluster
+      is healthy and ready to go, although some nodes are unavailable, and the control is returned back to the controller's loop.
+    - If the required number of nodes (minimum `(N-1)/2`) return `{ ok: false }` then the `ConditionReady` condition of the `TypesenseCluster` custom resource is set to `QuorumDowngrade` which means the cluster
+      is declared unhealthy, and as a mitigation plan is downgraded to a **single instance cluster** with intent to let raft recover the quorum automatically.
+      The quorum reconciliation loop then returns control back to the controller loop. 
+
+> [!NOTE]
+> In the next quorum reconciliation, the process will take the **North Path**, that will eventually discover a healthy quorum, 
+> nevertheless with the wrong amount of nodes; thing that will lead to setting the `ConditionReady` condition of the `TypesenseCluster` as `QuorumUpgraded`.
+> What happens next is already described in the **North Path**.
+   
 ![image](https://github.com/user-attachments/assets/0212cba0-c677-41df-a4f9-a41ca4eb6a8a)
 
-
+This scaling down and up of the `StatefulSet`, is in practice what would be necessary as "manual intervention" to recover
+a cluster that has lost its quorum. Instead the controller takes over and does this **without interrupting the service** and without
+requiring any action from the administrators of the cluster.
 
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
