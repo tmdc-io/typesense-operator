@@ -64,13 +64,13 @@ The FQDN of each endpoint of the headless service follows the naming convention:
 `{cluster-name}-sts-{pod-index}.{cluster-name}-sts-svc.{namespace}.svc.cluster.local:{peering-port}:{api-port}`
 
 > [!IMPORTANT]
-> **This eliminates completely the need of a sidecar** that translates endpoints of the headless Service to Pod IP addresses. 
+> **This eliminates completely the need of a sidecar** that translates endpoints of the headless `Service` to `Pod` IP addresses. 
 > The FQDN of the endpoints are resolving to the new IP addresses automatically and raft will start contacting those endpoints 
-> inside the next 30sec (polling interval of raft)
+> inside the next 30sec (polling interval of raft).
 
-3. As next step the reconciler will create a headless `Service` that we are going to need in the next step for the `StatefulSet`, 
-and a normal Kubernetes `Service` of type `ClusterIP` that will use to expose the REST/API endpoints of Typesense cluster to other systems
-4. A `StatefulSet` is been created. The quorum configuration that we keep in the ConfigMap is mounted a volume in every `Pod` 
+3. As next step the reconciler will create a headless `Service` that we are going to need for the `StatefulSet`, 
+and a normal Kubernetes `Service` of type `ClusterIP` that we will use to expose the REST/API endpoints of Typesense cluster to other systems
+4. A `StatefulSet` is being created. The quorum configuration that we keep in the ConfigMap is mounted a volume in every `Pod` 
 under the `/usr/share/typesense/nodelist`. No `Pod` reloading is required when changes happen to the `ConfigMap`, raft will
 pick up the changes automatically.
 
