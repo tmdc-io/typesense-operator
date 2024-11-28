@@ -62,7 +62,8 @@ reconciliation interval depend on the number of nodes, try that way to give brea
 
 ### Problem 2: Recovering a cluster that has lost quorum
 
-![image](https://github.com/user-attachments/assets/0fb0a52d-79a8-441e-97d3-bc7964c16581)
+
+![image](https://github.com/user-attachments/assets/0212cba0-c677-41df-a4f9-a41ca4eb6a8a)
 
 
 
