@@ -123,7 +123,7 @@ requiring any action from the administrators of the cluster.
 
 > [!CAUTION]
 > When a node is running out of memory or disk, the health endpoint response will have an additional `resource_error` field 
-> that will be set set to `OUT_OF_MEMORY` or `OUT_OF_DISK` respectively. In that very case, you need to manually intervene by either
+> that will be set set to `OUT_OF_MEMORY` or `OUT_OF_DISK` respectively. In that very case, **you need to manually intervene** by either
 > changing the `resources in `PodSpec` or the `storage` in `PersistentVolumeClaim` of the `StatefulSet`.
 
 ## Getting Started
