@@ -123,8 +123,9 @@ requiring any action from the administrators of the cluster.
 
 > [!CAUTION]
 > When a node is running out of memory or disk, the health endpoint response will have an additional `resource_error` field 
-> that will be set set to `OUT_OF_MEMORY` or `OUT_OF_DISK` respectively. In that very case, **you need to manually intervene** by either
-> changing the `resources in `PodSpec` or the `storage` in `PersistentVolumeClaim` of the `StatefulSet`.
+> that will be set to `OUT_OF_MEMORY` or `OUT_OF_DISK` respectively. In that very case, **you need to manually intervene** by either
+> changing the `resources` in `PodSpec` or the `storage` in `PersistentVolumeClaim` of the `StatefulSet` in order to provide
+> new memory limits or storage size.
 
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
