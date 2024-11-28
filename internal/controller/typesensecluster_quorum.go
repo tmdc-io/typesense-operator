@@ -21,18 +21,19 @@ type NodeHealthResponse struct {
 	ResourceError string `json:"resource_error"`
 }
 
-func (r *TypesenseClusterReconciler) ReconcileQuorum(ctx context.Context, ts tsv1alpha1.TypesenseCluster, sts appsv1.StatefulSet) (ConditionQuorum, error) {
+func (r *TypesenseClusterReconciler) ReconcileQuorum(ctx context.Context, ts tsv1alpha1.TypesenseCluster, sts appsv1.StatefulSet) (ConditionQuorum, int, error) {
 	r.logger.Info("reconciling quorum")
 
 	if sts.Status.ReadyReplicas != sts.Status.Replicas {
-		return ConditionReasonStatefulSetNotReady, fmt.Errorf("statefulset not ready: %d/%d replicas ready", sts.Status.ReadyReplicas, sts.Status.Replicas)
+		return ConditionReasonStatefulSetNotReady, 0, fmt.Errorf("statefulset not ready: %d/%d replicas ready", sts.Status.ReadyReplicas, sts.Status.Replicas)
 	}
 
-	condition, err := r.getQuorumHealth(ctx, &ts, &sts)
-	return condition, err
+	condition, size, err := r.getQuorumHealth(ctx, &ts, &sts)
+	r.logger.Info("reconciling quorum completed", "condition", condition)
+	return condition, size, err
 }
 
-func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *tsv1alpha1.TypesenseCluster, sts *appsv1.StatefulSet) (ConditionQuorum, error) {
+func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *tsv1alpha1.TypesenseCluster, sts *appsv1.StatefulSet) (ConditionQuorum, int, error) {
 	configMapName := fmt.Sprintf("%s-nodeslist", ts.Name)
 	configMapObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: configMapName}
 
@@ -45,7 +46,7 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *ts
 	availableNodes := len(nodes)
 	minRequiredNodes := (availableNodes-1)/2 + 1
 	if availableNodes < minRequiredNodes {
-		return ConditionReasonQuorumNotReady, fmt.Errorf("quorum has less than minimum %d available nodes", minRequiredNodes)
+		return ConditionReasonQuorumNotReady, availableNodes, fmt.Errorf("quorum has less than minimum %d available nodes", minRequiredNodes)
 	}
 
 	healthResults := make(map[string]bool, availableNodes)
@@ -96,44 +97,44 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *ts
 		if sts.Status.ReadyReplicas > 1 {
 			r.logger.Info("downgrading quorum")
 
-			_, err := r.updateConfigMap(ctx, ts, cm, ptr.To[int32](1))
+			_, size, err := r.updateConfigMap(ctx, ts, cm, ptr.To[int32](1))
 			if err != nil {
-				return ConditionReasonQuorumNotReady, err
+				return ConditionReasonQuorumNotReady, 0, err
 			}
 
 			err = r.scaleStatefulSet(ctx, sts, 1)
 			if err != nil {
-				return ConditionReasonQuorumNotReady, err
+				return ConditionReasonQuorumNotReady, 0, err
 			}
 
-			return ConditionReasonQuorumDowngraded, nil
+			return ConditionReasonQuorumDowngraded, size, nil
 		}
 
-		return ConditionReasonQuorumNotReady, fmt.Errorf("quorum has %d healthy nodes, minimum required %d", healthyNodes, minRequiredNodes)
+		return ConditionReasonQuorumNotReady, healthyNodes, fmt.Errorf("quorum has %d healthy nodes, minimum required %d", healthyNodes, minRequiredNodes)
 	} else {
 		if sts.Status.ReadyReplicas < ts.Spec.Replicas {
 			r.logger.Info("upgrading quorum")
 
-			_, err := r.updateConfigMap(ctx, ts, cm, &ts.Spec.Replicas)
+			_, size, err := r.updateConfigMap(ctx, ts, cm, &ts.Spec.Replicas)
 			if err != nil {
-				return ConditionReasonQuorumNotReady, err
+				return ConditionReasonQuorumNotReady, 0, err
 			}
 
 			err = r.scaleStatefulSet(ctx, sts, ts.Spec.Replicas)
 			if err != nil {
-				return ConditionReasonQuorumNotReady, err
+				return ConditionReasonQuorumNotReady, 0, err
 			}
 
-			return ConditionReasonQuorumUpgraded, nil
+			return ConditionReasonQuorumUpgraded, size, nil
 		}
 	}
 
-	return ConditionReasonQuorumReady, nil
+	return ConditionReasonQuorumReady, healthyNodes, nil
 }
 
 func (r *TypesenseClusterReconciler) scaleStatefulSet(ctx context.Context, sts *appsv1.StatefulSet, desiredReplicas int32) error {
 	if sts.Spec.Replicas != nil && *sts.Spec.Replicas == desiredReplicas {
-		r.logger.Info("statefulset already scaled to desired replicas", "name", sts.Name, "replicas", desiredReplicas)
+		r.logger.V(debugLevel).Info("statefulset already scaled to desired replicas", "name", sts.Name, "replicas", desiredReplicas)
 		return nil
 	}
 

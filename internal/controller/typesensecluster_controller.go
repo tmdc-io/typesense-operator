@@ -131,9 +131,11 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	condition := ConditionReasonQuorumReady
+	terminationGracePeriodSeconds := *sts.Spec.Template.Spec.TerminationGracePeriodSeconds
+	delayPerReplicaPeriodSeconds := int64(ts.Spec.Replicas)
+
 	if *updated {
-		condition, err = r.ReconcileQuorum(ctx, ts, *sts)
+		condition, size, err := r.ReconcileQuorum(ctx, ts, *sts)
 		if err != nil {
 			r.logger.Error(err, "reconciling quorum failed")
 		}
@@ -146,19 +148,22 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			if cerr != nil {
 				return ctrl.Result{}, cerr
 			}
+
+			if size != 0 {
+				delayPerReplicaPeriodSeconds = int64(size)
+			}
 		} else {
 			cerr := r.setConditionReady(ctx, &ts, string(condition))
 			if cerr != nil {
 				return ctrl.Result{}, cerr
 			}
+
+			delayPerReplicaPeriodSeconds = int64(1)
 		}
 	}
 
-	requeueAfter = 3 * time.Minute
-
-	//if condition == ConditionReasonQuorumDowngraded || condition == ConditionReasonQuorumUpgraded {
-	//	requeueAfter = 2 * time.Minute
-	//}
+	requeueAfter = time.Duration(delayPerReplicaPeriodSeconds*60+terminationGracePeriodSeconds) * time.Second
+	r.logger.Info("reconciling cluster completed", "requeueAfter", requeueAfter)
 
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }

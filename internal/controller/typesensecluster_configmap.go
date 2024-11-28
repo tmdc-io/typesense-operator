@@ -27,7 +27,7 @@ func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts 
 	}
 
 	if !configMapExists {
-		r.logger.Info("creating config map", "configmap", configMapObjectKey.Name)
+		r.logger.V(debugLevel).Info("creating config map", "configmap", configMapObjectKey.Name)
 
 		cm, err = r.createConfigMap(ctx, configMapObjectKey, &ts)
 		if err != nil {
@@ -35,7 +35,9 @@ func (r *TypesenseClusterReconciler) ReconcileConfigMap(ctx context.Context, ts 
 			return nil, err
 		}
 	} else {
-		cm, err = r.updateConfigMap(ctx, &ts, cm, nil)
+		r.logger.V(debugLevel).Info("updating config map", "configmap", configMapObjectKey.Name)
+
+		cm, _, err = r.updateConfigMap(ctx, &ts, cm, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -76,23 +78,7 @@ func (r *TypesenseClusterReconciler) createConfigMap(ctx context.Context, key cl
 	return cm, nil
 }
 
-func (r *TypesenseClusterReconciler) updateConfigMap(ctx context.Context, ts *tsv1alpha1.TypesenseCluster, cm *v1.ConfigMap, replicas *int32) (*v1.ConfigMap, error) {
-	//nodes := make([]string, 0)
-	//pods, err := r.getPods(ctx, ts)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//
-	//desired := cm.DeepCopy()
-	//
-	//for _, pod := range pods.Items {
-	//	for _, container := range pod.Spec.Containers {
-	//		if container.Name == "typesense" && strings.TrimSpace(pod.Status.PodIP) != "" && pod.Status.ContainerStatuses[0].Ready {
-	//			nodes = append(nodes, fmt.Sprintf("%s:%d:%d", pod.Status.PodIP, ts.Spec.PeeringPort, ts.Spec.ApiPort))
-	//		}
-	//	}
-	//}
-
+func (r *TypesenseClusterReconciler) updateConfigMap(ctx context.Context, ts *tsv1alpha1.TypesenseCluster, cm *v1.ConfigMap, replicas *int32) (*v1.ConfigMap, int, error) {
 	stsName := fmt.Sprintf("%s-sts", ts.Name)
 	stsObjectKey := client.ObjectKey{
 		Name:      stsName,
@@ -110,13 +96,13 @@ func (r *TypesenseClusterReconciler) updateConfigMap(ctx context.Context, ts *ts
 
 	nodes, err := r.getNodes(ts, *replicas)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	availableNodes := len(nodes)
 	if availableNodes == 0 {
-		r.logger.Info("empty quorum configuration")
-		return nil, fmt.Errorf("empty quorum configuration")
+		r.logger.V(debugLevel).Info("empty quorum configuration")
+		return nil, 0, fmt.Errorf("empty quorum configuration")
 	}
 
 	desired := cm.DeepCopy()
@@ -124,19 +110,19 @@ func (r *TypesenseClusterReconciler) updateConfigMap(ctx context.Context, ts *ts
 		"nodes": strings.Join(nodes, ","),
 	}
 
-	r.logger.Info("quorum configuration", "nodes", availableNodes, "nodes", nodes)
+	r.logger.V(debugLevel).Info("current quorum configuration", "size", availableNodes, "nodes", nodes)
 
 	if cm.Data["nodes"] != desired.Data["nodes"] {
-		r.logger.Info("updating quorum configuration")
+		r.logger.Info("updating quorum configuration", "size", availableNodes, "nodes", nodes)
 
 		err := r.Update(ctx, desired)
 		if err != nil {
 			r.logger.Error(err, "updating quorum configuration failed")
-			return nil, err
+			return nil, 0, err
 		}
 	}
 
-	return desired, nil
+	return desired, availableNodes, nil
 }
 
 func (r *TypesenseClusterReconciler) getPods(ctx context.Context, ts *tsv1alpha1.TypesenseCluster) (*v1.PodList, error) {
@@ -153,7 +139,7 @@ func (r *TypesenseClusterReconciler) getPods(ctx context.Context, ts *tsv1alpha1
 	}
 
 	if len(pods.Items) == 0 {
-		r.logger.Info("no pods found in quorum")
+		r.logger.V(debugLevel).Info("no pods found in quorum")
 		return nil, fmt.Errorf("no pods found in quorum")
 	}
 

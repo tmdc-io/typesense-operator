@@ -19,7 +19,7 @@ func (r *TypesenseClusterReconciler) ReconcileStatefulSet(
 	ctx context.Context,
 	ts tsv1alpha1.TypesenseCluster,
 ) (*appsv1.StatefulSet, error) {
-	r.logger.Info("reconciling statefulset")
+	r.logger.V(debugLevel).Info("reconciling statefulset")
 
 	stsName := fmt.Sprintf("%s-sts", ts.Name)
 	stsExists := true
@@ -38,7 +38,7 @@ func (r *TypesenseClusterReconciler) ReconcileStatefulSet(
 	}
 
 	if !stsExists {
-		r.logger.Info("creating statefulset", "sts", stsObjectKey)
+		r.logger.V(debugLevel).Info("creating statefulset", "sts", stsObjectKey)
 
 		sts, err := r.createStatefulSet(
 			ctx,

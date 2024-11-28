@@ -12,7 +12,7 @@ import (
 )
 
 func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts tsv1alpha1.TypesenseCluster) error {
-	r.logger.Info("reconciling services")
+	r.logger.V(debugLevel).Info("reconciling services")
 
 	headlessSvcName := fmt.Sprintf("%s-sts-svc", ts.Name)
 	headlessExists := true
@@ -28,7 +28,7 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 	}
 
 	if !headlessExists {
-		r.logger.Info("creating headless service", "service", headlessObjectKey)
+		r.logger.V(debugLevel).Info("creating headless service", "service", headlessObjectKey)
 
 		_, err := r.createHeadlessService(ctx, headlessObjectKey, &ts)
 		if err != nil {
@@ -51,7 +51,7 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 	}
 
 	if !svcExists {
-		r.logger.Info("creating resolver service", "service", svcObjectKey)
+		r.logger.V(debugLevel).Info("creating resolver service", "service", svcObjectKey)
 
 		_, err := r.createService(ctx, svcObjectKey, &ts)
 		if err != nil {
