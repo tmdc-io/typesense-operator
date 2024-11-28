@@ -47,8 +47,7 @@ it is explicitly stated:
 and the remaining node(s) cannot safely build consensus on which node is the leader. To avoid a potential split brain issue, 
 Typesense then stops accepting writes and reads **until some manual verification and intervention is done**.
 
-![image](https://github.com/user-attachments/assets/67cee6bf-00b8-422b-8c05-a1a260ce6753)
-
+![image](https://github.com/user-attachments/assets/a28357bf-199f-45e7-9ce4-9557043bfc20)
 
 In production environments manual intervention can be sometimes impossible or even not desired and the downtime of a service like
 Typesense might be completely out of the question. The Typesense Kubernetes Operator solves for that matter both of these problems:
