@@ -52,7 +52,21 @@ Typesense might be completely out of the question. The Typesense Kubernetes Oper
 
 ### Problem 1: Quorum reconfiguration
 
-The Typesense Kubernetes Operator takes over the whole lifecycle of Typesense Clusters in Kubernetes. 
+The Typesense Kubernetes Operator takes over the whole lifecycle of Typesense Clusters in Kubernetes:
+
+1. A random token is generated and stored as `base64` in a new `Secret`; it will be used later as the Admin Api key to boostrap Typesense cluster.
+2. A `ConfigMap` is created; the endpoints of the cluster nodes as a single concatenated string are provided `data` of the `ConfigMap`. Every
+new reconciliation loop identifies the new endpoints and updates the `ConfigMap`, which as we will see later is mounted in every Pod in the path
+tha raft expects the quorum configuration. 
+
+> [!IMPORTANT]
+> This eliminates completely the need of a sidecar that translates endpoints of the headless Service to Pod IP addresses. 
+> The FQDN of the endpoints are resolving to the new IP addresses automatically and raft will start contacting those endpoints 
+> inside the next 30sec (polling interval of raft)
+
+3. As next step the reconciler will create a headless `Service` that we are going to need in the next step for the `StatefulSet`, 
+and a normal Kubernetes `Service` of type `ClusterIP` that will use to expose the REST/API endpoints of Typesense cluster to other systems
+4. 
 
 ![image](https://github.com/user-attachments/assets/9028a0f8-5ae5-4f9e-a83c-8a7e8f0e2f25)
 
