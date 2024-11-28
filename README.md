@@ -16,7 +16,7 @@ Key features of Typesense Kubernetes Operator include:
     - Typesense filesystem as `PersistentVolumes`
 - **Raft Lifecycle Automation**:
     - Continuous active (re)discovery of the quorum configuration reacting to changes in `ReplicaSet` **without the need of an additional sidecar container**,
-    - Automatic recovery a cluster that has lost quorum **without the need of manual intervention**.
+    - Automatic recovery of a cluster that has lost quorum **without the need of manual intervention**.
 
 ### Background
 
