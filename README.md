@@ -48,7 +48,7 @@ and the remaining node(s) cannot safely build consensus on which node is the lea
 Typesense then stops accepting writes and reads **until some manual verification and intervention is done**.
 
 In production environments manual intervention can be sometimes impossible or even not desired and the downtime of a service like
-Typesense might be completely out of the question. The Typesense Kubernetes Operator solves for that matter both of these problems.
+Typesense might be completely out of the question. The Typesense Kubernetes Operator solves for that matter both of these problems:
 
 ### Problem 1: Quorum reconfiguration
 
@@ -81,6 +81,9 @@ pick up the changes automatically.
 > [!NOTE]
 > The interval of the reconciliation loops depends on the number of nodes, trying that way to give raft adequate 'breathing room'
 > to perform its operations (leader election, log replication, bootstrapping etc.) before a new _quorum's health reconciliation_ starts.
+
+5. The controller evaluates quorum's health by probing each node at `http://{nodeUrl}:{api-port}/health` and devises
+an action plan for the next reconciliation loop according to the outcome. This is described in the next paragraph:
 
 ### Problem 2: Recovering a cluster that has lost quorum
 
