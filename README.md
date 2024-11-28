@@ -59,20 +59,28 @@ The Typesense Kubernetes Operator takes over the whole lifecycle of Typesense Cl
 new reconciliation loop identifies the new endpoints and updates the `ConfigMap`, which as we will see later is mounted in every Pod in the path
 tha raft expects the quorum configuration. 
 
+The FQDN of each endpoint of the headless service follows the naming convention: 
+
+`{cluster-name}-sts-{pod-index}.{cluster-name}-sts-svc.{namespace}.svc.cluster.local:{peering-port}:{api-port}`
+
 > [!IMPORTANT]
-> This eliminates completely the need of a sidecar that translates endpoints of the headless Service to Pod IP addresses. 
+> **This eliminates completely the need of a sidecar** that translates endpoints of the headless Service to Pod IP addresses. 
 > The FQDN of the endpoints are resolving to the new IP addresses automatically and raft will start contacting those endpoints 
 > inside the next 30sec (polling interval of raft)
 
 3. As next step the reconciler will create a headless `Service` that we are going to need in the next step for the `StatefulSet`, 
 and a normal Kubernetes `Service` of type `ClusterIP` that will use to expose the REST/API endpoints of Typesense cluster to other systems
-4. 
+4. A `StatefulSet` is been created. The quorum configuration that we keep in the ConfigMap is mounted a volume in every `Pod` 
+under the `/usr/share/typesense/nodelist`. No `Pod` reloading is required when changes happen to the `ConfigMap`, raft will
+pick up the changes automatically.
+
 
 ![image](https://github.com/user-attachments/assets/9028a0f8-5ae5-4f9e-a83c-8a7e8f0e2f25)
 
 
-
-reconciliation interval depend on the number of nodes, try that way to give breathing room to raft to perform its operations (leader election, log replication, bootstrapping etc.)
+> [!NOTE]
+> The interval of the reconciliation loops depends on the number of nodes, trying that way to give raft adequate 'breathing room'
+> to perform its operations (leader election, log replication, bootstrapping etc.) before a new _quorum's health reconciliation_ starts.
 
 ### Problem 2: Recovering a cluster that has lost quorum
 
