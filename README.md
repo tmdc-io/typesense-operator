@@ -121,6 +121,11 @@ This scaling down and up of the `StatefulSet`, is in practice what would be nece
 a cluster that has lost its quorum. Instead the controller takes over and does this **without interrupting the service** and without
 requiring any action from the administrators of the cluster.
 
+> [!CAUTION]
+> When a node is running out of memory or disk, the health endpoint response will have an additional `resource_error` field 
+> that will be set set to `OUT_OF_MEMORY` or `OUT_OF_DISK` respectively. In that very case, you need to manually intervene by either
+> changing the `resources in `PodSpec` or the `storage` in `PersistentVolumeClaim` of the `StatefulSet`.
+
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
 **Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
