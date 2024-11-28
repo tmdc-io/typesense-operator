@@ -87,7 +87,16 @@ func (r *TypesenseClusterReconciler) updateConfigMap(ctx context.Context, ts *ts
 
 	var sts = &appsv1.StatefulSet{}
 	if err := r.Get(ctx, stsObjectKey, sts); err != nil {
-		r.logger.Error(err, fmt.Sprintf("unable to fetch statefulset: %s", stsName))
+		if apierrors.IsNotFound(err) {
+			err := r.deleteConfigMap(ctx, cm)
+			if err != nil {
+				return nil, 0, err
+			}
+		} else {
+			r.logger.Error(err, fmt.Sprintf("unable to fetch statefulset: %s", stsName))
+		}
+
+		return nil, 0, err
 	}
 
 	if replicas == nil {
@@ -125,25 +134,13 @@ func (r *TypesenseClusterReconciler) updateConfigMap(ctx context.Context, ts *ts
 	return desired, availableNodes, nil
 }
 
-func (r *TypesenseClusterReconciler) getPods(ctx context.Context, ts *tsv1alpha1.TypesenseCluster) (*v1.PodList, error) {
-	listOptions := []client.ListOption{
-		client.InNamespace(ts.Namespace),
-		client.MatchingLabels(getLabels(ts)),
-	}
-
-	pods := &v1.PodList{}
-	err := r.List(ctx, pods, listOptions...)
+func (r *TypesenseClusterReconciler) deleteConfigMap(ctx context.Context, cm *v1.ConfigMap) error {
+	err := r.Delete(ctx, cm)
 	if err != nil {
-		r.logger.Error(err, "failed to list quorum pods")
-		return nil, err
+		return err
 	}
 
-	if len(pods.Items) == 0 {
-		r.logger.V(debugLevel).Info("no pods found in quorum")
-		return nil, fmt.Errorf("no pods found in quorum")
-	}
-
-	return pods, nil
+	return nil
 }
 
 func (r *TypesenseClusterReconciler) getNodes(ts *tsv1alpha1.TypesenseCluster, replicas int32) ([]string, error) {

@@ -119,11 +119,11 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 								},
 								{
 									Name:  "TYPESENSE_ENABLE_CORS",
-									Value: strconv.FormatBool(ts.Spec.GetCors().Enabled),
+									Value: strconv.FormatBool(ts.Spec.IsCorsEnabled()),
 								},
 								{
 									Name:  "TYPESENSE_CORS_DOMAINS",
-									Value: ts.Spec.GetCors().Domains,
+									Value: ts.Spec.GetCorsDomains(),
 								},
 								{
 									Name:  "TYPESENSE_RESET_PEERS_ON_ERROR",

@@ -26,9 +26,6 @@ import (
 
 // TypesenseClusterSpec defines the desired state of TypesenseCluster
 type TypesenseClusterSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
 	Image string `json:"image"`
 
 	// +optional
@@ -53,10 +50,11 @@ type TypesenseClusterSpec struct {
 	// +kubebuilder:validation:Type=boolean
 	ResetPeersOnError bool `json:"resetPeersOnError,omitempty"`
 
-	Storage *StorageSpec `json:"storage"`
-
 	// +optional
-	Cors *CorsSpec `json:"cors,omitempty"`
+	// +kubebuilder:validation:Type=string
+	CorsDomains *string `json:"corsDomains,omitempty"`
+
+	Storage *StorageSpec `json:"storage"`
 }
 
 type StorageSpec struct {
@@ -74,16 +72,10 @@ type CorsSpec struct {
 	// +kubebuilder:default=true
 	// +kubebuilder:validation:Type=boolean
 	Enabled bool `json:"enabled,omitempty"`
-
-	// +optional
-	// +kubebuilder:validation:Type=string
-	Domains string `json:"storageClassName,omitempty"`
 }
 
 // TypesenseClusterStatus defines the observed state of TypesenseCluster
 type TypesenseClusterStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 
 	// +optional
 	// +operator-sdk:csv:customresourcedefinitions:type=status,xDescriptors={"urn:alm:descriptor:io.kubernetes.conditions"}

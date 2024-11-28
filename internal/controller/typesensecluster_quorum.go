@@ -6,7 +6,7 @@ import (
 	"fmt"
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 	"github.com/pkg/errors"
-	"io/ioutil"
+	"io"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
@@ -55,8 +55,8 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *ts
 	}
 
 	for _, node := range nodes {
-		tsUrl := strings.Replace(node, fmt.Sprintf(":%d", ts.Spec.PeeringPort), "", 1)
-		resp, err := httpClient.Get(fmt.Sprintf("http://%s/health", tsUrl))
+		nodeUrl := strings.Replace(node, fmt.Sprintf(":%d", ts.Spec.PeeringPort), "", 1)
+		resp, err := httpClient.Get(fmt.Sprintf("http://%s/health", nodeUrl))
 		if err != nil {
 			r.logger.Error(err, "health check failed", "node", node)
 			healthResults[node] = false
@@ -64,7 +64,7 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *ts
 		}
 		defer resp.Body.Close()
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			r.logger.Error(err, "reading health check response failed", "node", node)
 			healthResults[node] = false

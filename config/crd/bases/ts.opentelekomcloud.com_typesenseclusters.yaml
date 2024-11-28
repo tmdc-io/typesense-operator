@@ -58,14 +58,8 @@ spec:
               apiPort:
                 default: 8108
                 type: integer
-              cors:
-                properties:
-                  enabled:
-                    default: true
-                    type: boolean
-                  storageClassName:
-                    type: string
-                type: object
+              corsDomains:
+                type: string
               image:
                 type: string
               peeringPort:
