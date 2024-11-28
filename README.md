@@ -53,6 +53,11 @@ Typesense might be completely out of the question. The Typesense Kubernetes Oper
 ### Problem 1: Quorum reconfiguration
 
 The Typesense Kubernetes Operator takes over the whole lifecycle of Typesense Clusters in Kubernetes. 
+
+![image](https://github.com/user-attachments/assets/9028a0f8-5ae5-4f9e-a83c-8a7e8f0e2f25)
+
+
+
 reconciliation interval depend on the number of nodes, try that way to give breathing room to raft to perform its operations (leader election, log replication, bootstrapping etc.)
 
 ### Problem 2: Recovering a cluster that has lost quorum
