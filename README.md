@@ -83,7 +83,6 @@ Typesense may be unacceptable. The Typesense Kubernetes Operator addresses both 
 
 ### Problem 1: Quorum reconfiguration
 
-
 The Typesense Kubernetes Operator manages the entire lifecycle of Typesense Clusters within Kubernetes:
 
 1. A random token is generated and stored as a base64-encoded value in a new `Secret`. This token serves as the Admin API key for bootstrapping the Typesense cluster.
@@ -116,6 +115,14 @@ detects and applies the updates.
 results, it formulates an action plan for the next reconciliation loop. This process is detailed in the following section:
 
 ### Problem 2: Recovering a cluster that has lost quorum
+
+During configuration changes, we cannot switch directly from the old configuration to the next, because conflicting 
+majorities could arise. When that happens, no leader can be elected and eventually raft declares the whole cluster
+as unavailable which leaves it in a hot loop. One way to solve it, is to force the cluster downgrade to a single instance
+cluster and then gradually introduce new nodes (by scaling up the `StatefulSet`). With that approach we avoid the need
+of manual intervention in order to recover a cluster that has lost quorum.
+
+
 
 **Left Path:**
 
