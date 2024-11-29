@@ -122,7 +122,7 @@ as unavailable which leaves it in a hot loop. One way to solve it, is to force t
 cluster and then gradually introduce new nodes (by scaling up the `StatefulSet`). With that approach we avoid the need
 of manual intervention in order to recover a cluster that has lost quorum.
 
-![image](https://github.com/user-attachments/assets/81289d93-0366-44bc-bb80-91faaef5348f)
+![image](https://github.com/user-attachments/assets/007852ba-e173-43a4-babf-d250f8a34ad1)
 
 **Left Path:**
 
