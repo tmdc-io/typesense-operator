@@ -71,9 +71,9 @@ The Fully Qualified Domain Name (FQDN) for each endpoint of the headless service
 `{cluster-name}-sts-{pod-index}.{cluster-name}-sts-svc.{namespace}.svc.cluster.local:{peering-port}:{api-port}`
 
 > [!IMPORTANT]
-> **This eliminates completely the need of a sidecar** that translates endpoints of the headless `Service` to `Pod` IP addresses. 
-> The FQDN of the endpoints are resolving to the new IP addresses automatically and raft will start contacting those endpoints 
-> inside the next 30sec (polling interval of raft).
+> This completely eliminates the need for a sidecar to translate the endpoints of the headless Service into Pod IP addresses. 
+> The FQDN of the endpoints automatically resolves to the new IP addresses, and Raft will begin contacting these endpoints 
+> within its 30-second polling interval.
 
 3. Next, the reconciler creates a headless `Service` required for the `StatefulSet`, along with a standard Kubernetes 
 Service of type `ClusterIP`. The latter exposes the REST/API endpoints of the Typesense cluster to external systems.
