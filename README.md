@@ -36,10 +36,16 @@ The _specification_ of the CRD includes the following properties:
 - `storage.size`: the size of the underlying `PersistentVolume`, defaults to `100Mi`
 - `storage.storageClassName`: the storage class to use, defaults to `standard`
 
-The _status_ of the CRD includes a single property, `condition` of type `[]metav1.Condition`. There is actually only one
+The _status_ of the CRD includes a single property, `condition`, of type `[]metav1.Condition`. There is actually only one
 condition, `ConditionReady`, which steers the whole reconciliation process and results to `true` or `false` by evaluating
-the aggregated health of the cluster.
+the aggregated health of the cluster. There are 5 different condition reasons that can lead to a ready or not ready condition of 
+the CRD:
 
+- `QuorumReady`: the Typesense cluster is provisioned and fully **operational**
+- `QuorumNotReady`: the Typesense cluster is provisioned but **not operational**
+- `QuorumDegraded`: the Typesense cluster is provisioned but **not operational**, and scheduled for downgrade to single instance
+- `QuorumUpgraded`: the Typesense cluster is provisioned and fully **operational** as a single instance and scheduled for an upgrade to desired replicas
+- `QuorumNeedsIntervention`: the Typesense cluster is provisioned but **not operational**, the allocated memory or disk are not sufficient and administrative intervention is required
 
 ### Background
 
