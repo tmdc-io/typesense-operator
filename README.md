@@ -54,19 +54,19 @@ Typesense then stops accepting writes and reads **until some manual verification
 
 ![image](https://github.com/user-attachments/assets/a28357bf-199f-45e7-9ce4-9557043bfc20)
 
-In production environments manual intervention can be sometimes impossible or even not desired and the downtime of a service like
-Typesense might be completely out of the question. The Typesense Kubernetes Operator solves for that matter both of these problems:
+In production environments, manual intervention is sometimes impossible or undesirable, and downtime for a service like 
+Typesense may be unacceptable. The Typesense Kubernetes Operator addresses both of these challenges.
 
 ### Problem 1: Quorum reconfiguration
 
-The Typesense Kubernetes Operator takes over the whole lifecycle of Typesense Clusters in Kubernetes:
 
-1. A random token is generated and stored as `base64` in a new `Secret`; it will be used later as the Admin Api key to boostrap Typesense cluster.
-2. A `ConfigMap` is created; the endpoints of the cluster nodes as a single concatenated string are provided `data` of the `ConfigMap`. Every
-new reconciliation loop identifies the new endpoints and updates the `ConfigMap`, which as we will see later is mounted in every Pod in the path
-tha raft expects the quorum configuration. 
+The Typesense Kubernetes Operator manages the entire lifecycle of Typesense Clusters within Kubernetes:
 
-The FQDN of each endpoint of the headless service follows the naming convention: 
+1. A random token is generated and stored as a base64-encoded value in a new `Secret`. This token serves as the Admin API key for bootstrapping the Typesense cluster.
+2. A `ConfigMap` is created, containing the endpoints of the cluster nodes as a single concatenated string in its data field. 
+During each reconciliation loop, the operator identifies any new endpoints and updates the `ConfigMap`. This `ConfigMap` 
+is mounted in every `Pod` at the path where raft expects the quorum configuration, ensuring seamless integration.
+The Fully Qualified Domain Name (FQDN) for each endpoint of the headless service adheres to the following naming convention:
 
 `{cluster-name}-sts-{pod-index}.{cluster-name}-sts-svc.{namespace}.svc.cluster.local:{peering-port}:{api-port}`
 
@@ -75,20 +75,21 @@ The FQDN of each endpoint of the headless service follows the naming convention:
 > The FQDN of the endpoints are resolving to the new IP addresses automatically and raft will start contacting those endpoints 
 > inside the next 30sec (polling interval of raft).
 
-3. As next step the reconciler will create a headless `Service` that we are going to need for the `StatefulSet`, 
-and a normal Kubernetes `Service` of type `ClusterIP` that we will use to expose the REST/API endpoints of Typesense cluster to other systems
-4. A `StatefulSet` is being created. The quorum configuration that we keep in the ConfigMap is mounted a volume in every `Pod` 
-under the `/usr/share/typesense/nodelist`. No `Pod` reloading is required when changes happen to the `ConfigMap`, raft will
-pick up the changes automatically.
+3. Next, the reconciler creates a headless `Service` required for the `StatefulSet`, along with a standard Kubernetes 
+Service of type `ClusterIP`. The latter exposes the REST/API endpoints of the Typesense cluster to external systems.
+4. A `StatefulSet` is then created. The quorum configuration stored in the `ConfigMap` is mounted as a volume in each `Pod`
+under `/usr/share/typesense/nodelist`. No `Pod` restart is necessary when the `ConfigMap` changes, as raft automatically 
+detects and applies the updates.
 
 ![image](https://github.com/user-attachments/assets/30b6989c-c872-46ef-8ece-86c5d4911667)
 
 > [!NOTE]
-> The interval of the reconciliation loops depends on the number of nodes, trying that way to give raft adequate 'breathing room'
-> to perform its operations (leader election, log replication, bootstrapping etc.) before a new _quorum's health reconciliation_ starts.
+> The interval between reconciliation loops depends on the number of nodes. This approach ensures raft has sufficient 
+> "breathing room" to carry out its operations—such as leader election, log replication, and bootstrapping—before the 
+> next quorum health reconciliation begins.
 
-5. The controller evaluates quorum's health by probing each node at `http://{nodeUrl}:{api-port}/health` and devises
-an action plan for the next reconciliation loop according to the outcome. This is described in the next paragraph:
+5. The controller assesses the quorum's health by probing each node at `http://{nodeUrl}:{api-port}/health`. Based on the
+results, it formulates an action plan for the next reconciliation loop. This process is detailed in the following section:
 
 ### Problem 2: Recovering a cluster that has lost quorum
 
