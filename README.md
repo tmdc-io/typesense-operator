@@ -124,17 +124,16 @@ results, it formulates an action plan for the next reconciliation loop. This pro
    `TypesenseCluster` custom resource is set to `QuorumDowngrade`, marking the cluster as unhealthy. As part of the 
    mitigation plan, the cluster is scheduled for a downgrade to a single instance, with the intent to allow raft to automatically recover the quorum. 
    The quorum reconciliation loop then returns control to the main controller loop.
-
-> [!NOTE]
-> In the next quorum reconciliation, the process will take the **Left Path**, that will eventually discover a healthy quorum, 
-> nevertheless with the wrong amount of nodes; thing that will lead to setting the `ConditionReady` condition of the `TypesenseCluster` as `QuorumUpgraded`.
-> What happens next is already described in the **Left Path**.
+   - In the next quorum reconciliation, the process will take the **Left Path**, that will eventually discover a healthy quorum, 
+     nevertheless with the wrong amount of nodes; thing that will lead to setting the `ConditionReady` condition of the `TypesenseCluster` as `QuorumUpgraded`.
+     What happens next is already described in the **Left Path**.
    
 ![image](https://github.com/user-attachments/assets/55fda493-d35a-405c-8a58-a6f9436a28db)
 
-This scaling down and up of the `StatefulSet`, is in practice what would be necessary as "manual intervention" to recover
-a cluster that has lost its quorum. Instead the controller takes over and does this **without interrupting the service** and without
-requiring any action from the administrators of the cluster.
+> [!IMPORTANT]
+> The scaling down and up of the `StatefulSet` would typically be the manual intervention needed to recover a cluster that has lost its quorum. 
+> **However**, the controller automates this process, as long as is not a memory or disk capacity issue, ensuring no service
+> interruption and **eliminating the need for any administrator action**.
 
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
