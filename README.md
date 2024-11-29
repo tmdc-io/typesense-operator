@@ -71,7 +71,7 @@ The Fully Qualified Domain Name (FQDN) for each endpoint of the headless service
 `{cluster-name}-sts-{pod-index}.{cluster-name}-sts-svc.{namespace}.svc.cluster.local:{peering-port}:{api-port}`
 
 > [!IMPORTANT]
-> This completely eliminates the need for a sidecar to translate the endpoints of the headless `Service` into `Pod` IP addresses. 
+> **This completely eliminates the need for a sidecar** to translate the endpoints of the headless `Service` into `Pod` IP addresses. 
 > The FQDN of the endpoints automatically resolves to the new IP addresses, and raft will begin contacting these endpoints 
 > within its 30-second polling interval.
 
