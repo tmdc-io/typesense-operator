@@ -21,7 +21,9 @@ Key features of Typesense Kubernetes Operator include:
 ### Custom Resource Definition
 
 Typesense Kubernetes Operator is controlling the lifecycle of multiple Typesense instances in the same Kubernetes cluster by 
-introducing relying on a new Custom Resource Definition  
+introducing `TypesenseCluster`, a new Custom Resource Definition:  
+
+![image](https://github.com/user-attachments/assets/19c8dc13-4c75-4812-a162-b91eecc007a9)
 
 ### Background
 
