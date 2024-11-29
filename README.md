@@ -23,7 +23,7 @@ Key features of Typesense Kubernetes Operator include:
 Typesense Kubernetes Operator is controlling the lifecycle of multiple Typesense instances in the same Kubernetes cluster by 
 introducing `TypesenseCluster`, a new Custom Resource Definition:  
 
-![image](https://github.com/user-attachments/assets/19c8dc13-4c75-4812-a162-b91eecc007a9)
+![image](https://github.com/user-attachments/assets/23e40781-ca21-4297-93bf-2b5dbebc7e0e)
 
 ### Background
 
