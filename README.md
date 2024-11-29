@@ -25,9 +25,9 @@ introducing `TypesenseCluster`, a new Custom Resource Definition:
 
 ![image](https://github.com/user-attachments/assets/23e40781-ca21-4297-93bf-2b5dbebc7e0e)
 
-The specification of the CRD includes the following properties:
+The _specification_ of the CRD includes the following properties:
 
-- `image`: the Typesense docker image to use
+- `image`: the Typesense docker image to use, required
 - `replicas`: the size of the cluster, defaults to `1`
 - `apiPort`: the REST/API port, defaults to `8108`
 - `peeringPort`: the peering port, defaults to `8107`
@@ -35,6 +35,11 @@ The specification of the CRD includes the following properties:
 - `corsDomains`: domains that would be allowed for CORS calls, optional.
 - `storage.size`: the size of the underlying `PersistentVolume`, defaults to `100Mi`
 - `storage.storageClassName`: the storage class to use, defaults to `standard`
+
+The _status_ of the CRD includes a single property, `condition` of type `[]metav1.Condition`. There is actually only one
+condition, **ConditionReady**, which steers the whole reconciliation process and results to `true` or `false` by evaluating
+the aggregated health of the cluster.
+
 
 ### Background
 
