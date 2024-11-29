@@ -14,7 +14,7 @@ Key features of Typesense Kubernetes Operator include:
     - provision Typesense services (headless & discovery `Services`),
     - actively discover and update Typesense's nodes list (quorum configuration mounted as `ConfigMap`),
     - place claims for Typesense `PersistentVolumes`
-- **Raft Lifecycle Automation**:
+- **Raft Quorum Configuration & Recovery Automation**:
     - Continuous active (re)discovery of the quorum configuration reacting to changes in `ReplicaSet` **without the need of an additional sidecar container**,
     - Automatic recovery of a cluster that has lost quorum **without the need of manual intervention**.
 
@@ -76,7 +76,7 @@ and a normal Kubernetes `Service` of type `ClusterIP` that we will use to expose
 under the `/usr/share/typesense/nodelist`. No `Pod` reloading is required when changes happen to the `ConfigMap`, raft will
 pick up the changes automatically.
 
-![image](https://github.com/user-attachments/assets/79516a1f-f6ab-420e-8ad8-f7b916dd2679)
+![image](https://github.com/user-attachments/assets/28b6c01a-5615-4c15-af35-fb610686fb0c)
 
 > [!NOTE]
 > The interval of the reconciliation loops depends on the number of nodes, trying that way to give raft adequate 'breathing room'
