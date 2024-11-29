@@ -87,7 +87,7 @@ an action plan for the next reconciliation loop according to the outcome. This i
 
 ### Problem 2: Recovering a cluster that has lost quorum
 
-**North Path:**
+**Left Path:**
 
 1. Quorum reconciler is probing every node of the cluster at `http://{nodeUrl}:{api-port}/health`. If every node returns
 `{ ok: true }` then the `ConditionReady` condition of the `TypesenseCluster` custom resource is set to `QuorumReady` which means the cluster 
@@ -100,8 +100,14 @@ is 100% healthy and ready to go.
    loop set the `ConditionReady` condition of the `TypesenseCluster` as `QuorumUpgraded` and returns control back to the controller loop
    which will attempt, in its next reconciliation loop, to restore the cluster size to the desired size defined by the `TypesenseCluster` custom resource,
    and let raft to identify the new quorum configuration and elect a new leader.
+   - In the event that a node is running out of memory or disk, the health endpoint response will have an additional `resource_error` field
+   that will be set to `OUT_OF_MEMORY` or `OUT_OF_DISK` respectively. In that very case, the quorum reconciler, 
+   marks the `ConditionReady` condition of the `TypesenseCluster` as `QuorumNeedsIntervention`, signals a Kubernetes `Event` and returns control back to the controller. 
+   In that and only case, **you need to manually intervene** by either changing the `resources` in `PodSpec` or the `storage` in `PersistentVolumeClaim` of the `StatefulSet` in order to provide
+   new memory limits or storage size. That can easily happen by just changing and re-applying the respective `TypesenseCluster` manifest!
 
-**South Path:**
+
+**Right Path:**
 
 1. Quorum reconciler is probing every node of the cluster at `http://{nodeUrl}:{api-port}/health`. 
     - If the required number of nodes (minimum `(N-1)/2`) return `{ ok: true }` then the `ConditionReady` condition of the `TypesenseCluster` custom resource is set to `QuorumReady` which means the cluster
@@ -111,23 +117,15 @@ is 100% healthy and ready to go.
       The quorum reconciliation loop then returns control back to the controller loop. 
 
 > [!NOTE]
-> In the next quorum reconciliation, the process will take the **North Path**, that will eventually discover a healthy quorum, 
+> In the next quorum reconciliation, the process will take the **Left Path**, that will eventually discover a healthy quorum, 
 > nevertheless with the wrong amount of nodes; thing that will lead to setting the `ConditionReady` condition of the `TypesenseCluster` as `QuorumUpgraded`.
-> What happens next is already described in the **North Path**.
+> What happens next is already described in the **Left Path**.
    
 ![image](https://github.com/user-attachments/assets/55fda493-d35a-405c-8a58-a6f9436a28db)
 
 This scaling down and up of the `StatefulSet`, is in practice what would be necessary as "manual intervention" to recover
 a cluster that has lost its quorum. Instead the controller takes over and does this **without interrupting the service** and without
 requiring any action from the administrators of the cluster.
-
-> [!CAUTION]
-> When a node is running out of memory or disk, the health endpoint response will have an additional `resource_error` field 
-> that will be set to `OUT_OF_MEMORY` or `OUT_OF_DISK` respectively. In that very case, **you need to manually intervene** by either
-> changing the `resources` in `PodSpec` or the `storage` in `PersistentVolumeClaim` of the `StatefulSet` in order to provide
-> new memory limits or storage size.
-> 
-> That can easily happen by just changing and reapplying the respective `TypesenseCluster` manifest!
 
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
