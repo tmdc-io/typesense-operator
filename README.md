@@ -95,23 +95,22 @@ results, it formulates an action plan for the next reconciliation loop. This pro
 
 **Left Path:**
 
-1. Quorum reconciler is probing every node of the cluster at `http://{nodeUrl}:{api-port}/health`. If every node returns
-`{ ok: true }` then the `ConditionReady` condition of the `TypesenseCluster` custom resource is set to `QuorumReady` which means the cluster 
-is 100% healthy and ready to go.
+1. The quorum reconciler probes each cluster node at `http://{nodeUrl}:{api-port}/health`. If every node responds with `{ ok: true }`, 
+    the `ConditionReady` status of the `TypesenseCluster` custom resource is updated to `QuorumReady`, indicating that the cluster is fully healthy and operational.
 2.
-   - If the cluster size has already the desired size defined by the `TypesenseCluster` custom resource (in case was not downgraded during 
-   another loop; we will explore that option later) the quorum reconciliation loop marks the `ConditionReady` condition of the `TypesenseCluster` 
-   custom resource is set to `QuorumReady`exits and returns back to the controller loop.
-   - If the cluster has been downgraded to a single instance during a previous reconciliation loop, the the quorum reconciliation 
-   loop set the `ConditionReady` condition of the `TypesenseCluster` as `QuorumUpgraded` and returns control back to the controller loop
-   which will attempt, in its next reconciliation loop, to restore the cluster size to the desired size defined by the `TypesenseCluster` custom resource,
-   and let raft to identify the new quorum configuration and elect a new leader.
-   - In the event that a node is running out of memory or disk, the health endpoint response will have an additional `resource_error` field
-   that will be set to `OUT_OF_MEMORY` or `OUT_OF_DISK` respectively. In that very case, the quorum reconciler, 
-   marks the `ConditionReady` condition of the `TypesenseCluster` as `QuorumNeedsIntervention`, signals a Kubernetes `Event` and returns control back to the controller. 
-   In that and only case, **you need to manually intervene** by either changing the `resources` in `PodSpec` or the `storage` in `PersistentVolumeClaim` of the `StatefulSet` in order to provide
-   new memory limits or storage size. That can easily happen by just changing and re-applying the respective `TypesenseCluster` manifest!
-
+   - If the cluster size matches the desired size defined in the `TypesenseCluster` custom resource (and was not downgraded
+   during a previous loop—this scenario will be discussed later), the quorum reconciliation loop sets the `ConditionReady` 
+   status of the `TypesenseCluster` custom resource to `QuorumReady`, exits, and hands control back to the main controller loop.
+   - If the cluster was downgraded to a single instance during a previous reconciliation loop, the quorum reconciliation loop
+   sets the `ConditionReady` status of the `TypesenseCluster` custom resource to `QuorumUpgraded`. It then returns control 
+   to the main controller loop, which will attempt to restore the cluster to the desired size defined in the `TypesenseCluster`
+   custom resource during the next reconciliation loop. Raft will then identify the new quorum configuration and elect a new leader.
+   - If a node runs out of memory or disk, the health endpoint response will include an additional `resource_error` field, 
+   set to either `OUT_OF_MEMORY` or `OUT_OF_DISK`, depending on the issue. In this case, the quorum reconciler marks the
+   `ConditionReady` status of the `TypesenseCluster` as `QuorumNeedsIntervention`, triggers a Kubernetes `Event`, and 
+   returns control to the main controller loop. **In this scenario, manual intervention is required**. You must adjust the 
+   resources in the `PodSpec` or the storage in the `PersistentVolumeClaim` of the `StatefulSet` to provide new memory limits 
+   or increased storage size. This can be done by modifying and re-applying the corresponding `TypesenseCluster` manifest.
 
 **Right Path:**
 
