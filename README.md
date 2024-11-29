@@ -37,7 +37,7 @@ The _specification_ of the CRD includes the following properties:
 - `storage.storageClassName`: the storage class to use, defaults to `standard`
 
 The _status_ of the CRD includes a single property, `condition` of type `[]metav1.Condition`. There is actually only one
-condition, **ConditionReady**, which steers the whole reconciliation process and results to `true` or `false` by evaluating
+condition, `ConditionReady`, which steers the whole reconciliation process and results to `true` or `false` by evaluating
 the aggregated health of the cluster.
 
 
