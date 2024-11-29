@@ -63,9 +63,9 @@ Typesense may be unacceptable. The Typesense Kubernetes Operator addresses both 
 The Typesense Kubernetes Operator manages the entire lifecycle of Typesense Clusters within Kubernetes:
 
 1. A random token is generated and stored as a base64-encoded value in a new `Secret`. This token serves as the Admin API key for bootstrapping the Typesense cluster.
-2. A `ConfigMap` is created, containing the endpoints of the cluster nodes as a single concatenated string in its data field. 
-During each reconciliation loop, the operator identifies any new endpoints and updates the `ConfigMap`. This `ConfigMap` 
-is mounted in every `Pod` at the path where raft expects the quorum configuration, ensuring seamless integration.
+2. A `ConfigMap` is created, containing the endpoints of the cluster nodes as a single concatenated string in its `data` field. 
+During each reconciliation loop, the operator identifies any changes in endpoints and updates the `ConfigMap`. This `ConfigMap` 
+is mounted in every `Pod` at the path where raft expects the quorum configuration, ensuring quorum configuration stays always updated.
 The Fully Qualified Domain Name (FQDN) for each endpoint of the headless service adheres to the following naming convention:
 
 `{cluster-name}-sts-{pod-index}.{cluster-name}-sts-svc.{namespace}.svc.cluster.local:{peering-port}:{api-port}`
