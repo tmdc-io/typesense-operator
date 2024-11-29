@@ -1,6 +1,6 @@
 # Typesense Kubernetes Operator
 
-The **Typesense Kubernetes Operator** is designed to manage the deployment and lifecycle of Typesense clusters within Kubernetes environments. 
+The **Typesense Kubernetes Operator** is designed to manage the deployment and lifecycle of [Typesense](https://typesense.org/) clusters within Kubernetes environments. 
 The operator is developed in Go using [Operator SDK Framework](https://sdk.operatorframework.io/), an open source toolkit to manage Kubernetes native applications, called Operators, in an effective, automated, and scalable way. 
 
 ## Description
@@ -127,7 +127,7 @@ of manual intervention in order to recover a cluster that has lost quorum.
 > [!IMPORTANT]
 > Scaling the `StatefulSet` down and subsequently up, would typically be the manual intervention needed to recover a cluster that has lost its quorum. 
 > **However**, the controller automates this process, as long as is not a memory or disk capacity issue, ensuring no service
-> interruption and **eliminating the need for any administrator action**.
+> interruption and **eliminating the need for any administration action**.
 
 ![image](https://github.com/user-attachments/assets/55fda493-d35a-405c-8a58-a6f9436a28db)
 
