@@ -124,6 +124,13 @@ of manual intervention in order to recover a cluster that has lost quorum.
 
 ![image](https://github.com/user-attachments/assets/007852ba-e173-43a4-babf-d250f8a34ad1)
 
+> [!IMPORTANT]
+> Scaling the `StatefulSet` down and subsequently up, would typically be the manual intervention needed to recover a cluster that has lost its quorum. 
+> **However**, the controller automates this process, as long as is not a memory or disk capacity issue, ensuring no service
+> interruption and **eliminating the need for any administrator action**.
+
+![image](https://github.com/user-attachments/assets/55fda493-d35a-405c-8a58-a6f9436a28db)
+
 **Left Path:**
 
 1. The quorum reconciler probes each cluster node at `http://{nodeUrl}:{api-port}/health`. If every node responds with `{ ok: true }`, 
@@ -157,13 +164,6 @@ of manual intervention in order to recover a cluster that has lost quorum.
      nevertheless with the wrong amount of nodes; thing that will lead to setting the `ConditionReady` condition of the `TypesenseCluster` as `QuorumUpgraded`.
      What happens next is already described in the **Left Path**.
    
-![image](https://github.com/user-attachments/assets/55fda493-d35a-405c-8a58-a6f9436a28db)
-
-> [!IMPORTANT]
-> The scaling down and up of the `StatefulSet` would typically be the manual intervention needed to recover a cluster that has lost its quorum. 
-> **However**, the controller automates this process, as long as is not a memory or disk capacity issue, ensuring no service
-> interruption and **eliminating the need for any administrator action**.
-
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
 **Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
