@@ -28,7 +28,7 @@ introducing `TypesenseCluster`, a new Custom Resource Definition:
 The specification of the CRD includes the following properties:
 
 - `image`: the Typesense docker image to use
-- `replicas`: the size of the cluster, defaults to **1**
+- `replicas`: the size of the cluster, defaults to `1`
 - `apiPort`: the REST/API port, defaults to `8108`
 - `peeringPort`: the peering port, defaults to `8107`
 - `resetPeersOnError`: whether to reset nodes in error state or not, defaults to `true`
