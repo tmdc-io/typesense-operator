@@ -116,12 +116,14 @@ results, it formulates an action plan for the next reconciliation loop. This pro
 
 **Right Path:**
 
-1. Quorum reconciler is probing every node of the cluster at `http://{nodeUrl}:{api-port}/health`. 
-    - If the required number of nodes (minimum `(N-1)/2`) return `{ ok: true }` then the `ConditionReady` condition of the `TypesenseCluster` custom resource is set to `QuorumReady` which means the cluster
-      is healthy and ready to go, although some nodes are unavailable, and the control is returned back to the controller's loop.
-    - If the required number of nodes (minimum `(N-1)/2`) return `{ ok: false }` then the `ConditionReady` condition of the `TypesenseCluster` custom resource is set to `QuorumDowngrade` which means the cluster
-      is declared unhealthy, and as a mitigation plan is downgraded to a **single instance cluster** with intent to let raft recover the quorum automatically.
-      The quorum reconciliation loop then returns control back to the controller loop. 
+1. The quorum reconciler probes each node of the cluster at http://{nodeUrl}:{api-port}/health. 
+   - If the required number of nodes (at least `(N-1)/2`) return `{ ok: true }`, the `ConditionReady` status of the 
+   `TypesenseCluster` custom resource is set to `QuorumReady`, indicating that the cluster is healthy and operational, 
+   **even if** some nodes are unavailable. Control is then returned to the main controller loop.
+   - If the required number of nodes (at least `(N-1)/2`) return `{ ok: false }`, the `ConditionReady` status of the 
+   `TypesenseCluster` custom resource is set to `QuorumDowngrade`, marking the cluster as unhealthy. As part of the 
+   mitigation plan, the cluster is scheduled for a downgrade to a single instance, with the intent to allow raft to automatically recover the quorum. 
+   The quorum reconciliation loop then returns control to the main controller loop.
 
 > [!NOTE]
 > In the next quorum reconciliation, the process will take the **Left Path**, that will eventually discover a healthy quorum, 
