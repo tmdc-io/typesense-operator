@@ -18,6 +18,11 @@ Key features of Typesense Kubernetes Operator include:
     - Continuous active (re)discovery of the quorum configuration reacting to changes in `ReplicaSet` **without the need of an additional sidecar container**,
     - Automatic recovery of a cluster that has lost quorum **without the need of manual intervention**.
 
+### Custom Resource Definition
+
+Typesense Kubernetes Operator is controlling the lifecycle of multiple Typesense instances in the same Kubernetes cluster by 
+introducing relying on a new Custom Resource Definition  
+
 ### Background
 
 Typesense is using raft in the background to establish its clusters. Raft is a consensus algorithm based on the 
