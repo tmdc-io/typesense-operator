@@ -76,7 +76,7 @@ and a normal Kubernetes `Service` of type `ClusterIP` that we will use to expose
 under the `/usr/share/typesense/nodelist`. No `Pod` reloading is required when changes happen to the `ConfigMap`, raft will
 pick up the changes automatically.
 
-![image](https://github.com/user-attachments/assets/28b6c01a-5615-4c15-af35-fb610686fb0c)
+![image](https://github.com/user-attachments/assets/30b6989c-c872-46ef-8ece-86c5d4911667)
 
 > [!NOTE]
 > The interval of the reconciliation loops depends on the number of nodes, trying that way to give raft adequate 'breathing room'
@@ -115,7 +115,7 @@ is 100% healthy and ready to go.
 > nevertheless with the wrong amount of nodes; thing that will lead to setting the `ConditionReady` condition of the `TypesenseCluster` as `QuorumUpgraded`.
 > What happens next is already described in the **North Path**.
    
-![image](https://github.com/user-attachments/assets/0212cba0-c677-41df-a4f9-a41ca4eb6a8a)
+![image](https://github.com/user-attachments/assets/55fda493-d35a-405c-8a58-a6f9436a28db)
 
 This scaling down and up of the `StatefulSet`, is in practice what would be necessary as "manual intervention" to recover
 a cluster that has lost its quorum. Instead the controller takes over and does this **without interrupting the service** and without
