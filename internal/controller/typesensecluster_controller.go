@@ -140,7 +140,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			r.logger.Error(err, "reconciling quorum failed")
 		}
 
-		if condition != ConditionReasonQuorumReady {
+		if condition == ConditionReasonQuorumNeedsAttention {
 			if err == nil {
 				err = errors.New("quorum is not ready")
 			}
@@ -152,13 +152,30 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 			if size != 0 {
 				delayPerReplicaPeriodSeconds = int64(size)
 			}
-		} else {
-			cerr := r.setConditionReady(ctx, &ts, string(condition))
-			if cerr != nil {
-				return ctrl.Result{}, cerr
-			}
 
-			delayPerReplicaPeriodSeconds = int64(1)
+			requeueAfter = time.Duration(delayPerReplicaPeriodSeconds*60+terminationGracePeriodSeconds) * time.Second
+			return ctrl.Result{RequeueAfter: requeueAfter}, err
+		} else {
+			if condition != ConditionReasonQuorumReady {
+				if err == nil {
+					err = errors.New("quorum is not ready")
+				}
+				cerr := r.setConditionNotReady(ctx, &ts, string(condition), err)
+				if cerr != nil {
+					return ctrl.Result{}, cerr
+				}
+
+				if size != 0 {
+					delayPerReplicaPeriodSeconds = int64(size)
+				}
+			} else {
+				cerr := r.setConditionReady(ctx, &ts, string(condition))
+				if cerr != nil {
+					return ctrl.Result{}, cerr
+				}
+
+				delayPerReplicaPeriodSeconds = int64(1)
+			}
 		}
 	}
 

@@ -4,5 +4,5 @@ metadata:
   name: typesense-local-path
 provisioner: rancher.io/local-path
 reclaimPolicy: Delete
-allowVolumeExpansion: true
+allowVolumeExpansion: false
 volumeBindingMode: WaitForFirstConsumer

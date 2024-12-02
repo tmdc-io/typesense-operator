@@ -82,6 +82,8 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *ts
 		if !ready.Ok && ready.ResourceError != "" {
 			err := errors.New(ready.ResourceError)
 			r.logger.Error(err, "health check reported a node error", "node", node)
+		} else if !ready.Ok && (ready.ResourceError == "OUT_OF_DISK" || ready.ResourceError == "OUT_OF_MEMORY") {
+			return ConditionReasonQuorumNeedsAttention, 0, fmt.Errorf("health check reported a blocking node error on %s: %s", node, ready.ResourceError)
 		}
 		healthResults[node] = ready.Ok
 	}
