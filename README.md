@@ -184,9 +184,38 @@ make deploy IMG=<some-registry>/typesense-operator:<tag>
 
 3. Install Instances of Custom Resources:
 
+If you are running on KIND, first install a custom storage class required by the samples
+
+```shell
+kubectl apply -f config/kind/
+```
+
+and then the samples:
+
 ```sh
 kubectl apply -f config/samples/
 ```
+
+```yaml
+apiVersion: ts.opentelekomcloud.com/v1alpha1
+kind: TypesenseCluster
+metadata:
+  labels:
+    app.kubernetes.io/name: typesense-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: cluster-1
+spec:
+  image: typesense/typesense:27.1
+  replicas: 3
+  storage:
+    size: 10Mi
+    storageClassName: typesense-local-path
+```
+
+> [!CAUTION]
+> - The samples are tailored for KIND, change the `storageClassName` value according to your target environment.
+> - The 3rd sample is designed to portray a failing installation, `storageClassName` is set to `iscsi` which will fail on
+> any Kubernetes cluster that is not using **democratic-csi**. 
 
 ### Uninstall CRDs
 To delete the CRDs from the cluster:
