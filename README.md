@@ -79,6 +79,9 @@ Typesense then stops accepting writes and reads **until some manual verification
 
 ![image](https://github.com/user-attachments/assets/a28357bf-199f-45e7-9ce4-9557043bfc20)
 
+> [!NOTE]
+> Illustration's been taken from [Free Gophers Pack](https://github.com/MariaLetta/free-gophers-pack)
+
 In production environments, manual intervention is sometimes impossible or undesirable, and downtime for a service like 
 Typesense may be unacceptable. The Typesense Kubernetes Operator addresses both of these challenges.
 
