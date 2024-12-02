@@ -215,7 +215,7 @@ spec:
 > [!CAUTION]
 > - The samples are tailored for KIND, change the `storageClassName` value according to your target environment.
 > - The 3rd sample is designed to portray a failing installation, `storageClassName` is set to `iscsi` which will fail on
-> any Kubernetes cluster that is not using https://github.com/democratic-csi/democratic-csi. 
+> any Kubernetes cluster that is not using [democratic-csi](https://github.com/democratic-csi/democratic-csi). 
 
 ### Uninstall CRDs
 To delete the CRDs from the cluster:
