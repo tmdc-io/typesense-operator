@@ -1,0 +1,21 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "typesense-operator.fullname" . }}-typesensecluster-viewer-role
+  labels:
+  {{- include "typesense-operator.labels" . | nindent 4 }}
+rules:
+- apiGroups:
+  - ts.opentelekomcloud.com
+  resources:
+  - typesenseclusters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ts.opentelekomcloud.com
+  resources:
+  - typesenseclusters/status
+  verbs:
+  - get
