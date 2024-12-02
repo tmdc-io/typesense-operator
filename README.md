@@ -215,7 +215,7 @@ spec:
 > [!CAUTION]
 > - The samples are tailored for KIND, change the `storageClassName` value according to your target environment.
 > - The 3rd sample is designed to portray a failing installation, `storageClassName` is set to `iscsi` which will fail on
-> any Kubernetes cluster that is not using **democratic-csi**. 
+> any Kubernetes cluster that is not using https://github.com/democratic-csi/democratic-csi. 
 
 ### Uninstall CRDs
 To delete the CRDs from the cluster:
@@ -229,6 +229,19 @@ UnDeploy the controller from the cluster:
 
 ```sh
 make undeploy
+```
+
+### Using Helm 
+
+On the other hand if you are deploying on a production environment, it is **highly recommended** to deploy the
+controller to the cluster using a **Helm chart** from its repo:
+
+
+```sh
+helm repo add typesense-operator https://akyriako.github.io/typesense-operator/
+helm repo update
+
+helm upgrade --install typesense-operator typesense-operator/typesense-operator -n typesense-system --create-namespace
 ```
 
 ### How it works
