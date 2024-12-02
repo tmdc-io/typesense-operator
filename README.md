@@ -1,4 +1,5 @@
 # Typesense Kubernetes Operator
+![Static Badge](https://img.shields.io/badge/status-beta-orange)
 
 The **Typesense Kubernetes Operator** is designed to manage the deployment and lifecycle of [Typesense](https://typesense.org/) clusters within Kubernetes environments. 
 The operator is developed in Go using [Operator SDK Framework](https://sdk.operatorframework.io/), an open source toolkit to manage Kubernetes native applications, called Operators, in an effective, automated, and scalable way. 
