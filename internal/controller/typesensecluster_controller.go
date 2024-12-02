@@ -20,7 +20,9 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,8 +37,9 @@ import (
 // TypesenseClusterReconciler reconciles a TypesenseCluster object
 type TypesenseClusterReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	logger logr.Logger
+	Scheme   *runtime.Scheme
+	logger   logr.Logger
+	Recorder record.EventRecorder
 }
 
 type TypesenseClusterReconciliationPhase struct {
@@ -71,6 +74,7 @@ var (
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -149,6 +153,8 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				return ctrl.Result{}, cerr
 			}
 
+			r.Recorder.Eventf(&ts, "Warning", string(condition), err.Error())
+
 			if size != 0 {
 				delayPerReplicaPeriodSeconds = int64(size)
 			}
@@ -165,13 +171,21 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 					return ctrl.Result{}, cerr
 				}
 
+				r.Recorder.Eventf(&ts, "Warning", string(condition), err.Error())
+
 				if size != 0 {
 					delayPerReplicaPeriodSeconds = int64(size)
 				}
 			} else {
+				c := ts.Status.Conditions[0]
+
 				cerr := r.setConditionReady(ctx, &ts, string(condition))
 				if cerr != nil {
 					return ctrl.Result{}, cerr
+				}
+
+				if c.Status != metav1.ConditionTrue {
+					r.Recorder.Eventf(&ts, "Normal", string(condition), "quorum is ready")
 				}
 
 				delayPerReplicaPeriodSeconds = int64(1)
