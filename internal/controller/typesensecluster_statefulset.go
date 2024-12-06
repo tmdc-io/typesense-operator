@@ -118,6 +118,13 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 									Value: strconv.Itoa(ts.Spec.PeeringPort),
 								},
 								{
+									Name: "TYPESENSE_PEERING_ADDRESS",
+									ValueFrom: &corev1.EnvVarSource{
+										FieldRef: &corev1.ObjectFieldSelector{
+											FieldPath: "status.podIP",
+										}},
+								},
+								{
 									Name:  "TYPESENSE_ENABLE_CORS",
 									Value: strconv.FormatBool(ts.Spec.IsCorsEnabled()),
 								},
