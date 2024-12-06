@@ -1,4 +1,8 @@
 ## Append samples of your project ##
 resources:
-- ts_v1alpha1_typesensecluster.yaml
+- ts_v1alpha1_typesensecluster_aws.yaml
+- ts_v1alpha1_typesensecluster_azure.yaml
+- ts_v1alpha1_typesensecluster_bm.yaml
+- ts_v1alpha1_typesensecluster_kind.yaml
+- ts_v1alpha1_typesensecluster_opentelekomcloud.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
