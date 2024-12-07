@@ -174,7 +174,7 @@ You’ll need a Kubernetes cluster to run against. You can use [KIND](https://si
 
 ### Deploy Using Helm
 
-On the other hand if you are deploying on a production environment, it is **highly recommended** to deploy the
+If you are deploying on a production environment, it is **highly recommended** to deploy the
 controller to the cluster using a **Helm chart** from its repo:
 
 ```sh
@@ -202,19 +202,24 @@ make deploy IMG=<some-registry>/typesense-operator:<tag>
 
 3. Install Instances of Custom Resources:
 
-If you are running on KIND, first install a custom storage class required by the samples
+Provision one of the samples available in `config/samples`:
 
-```shell
-kubectl apply -f config/kind/
-```
-
-and then the samples:
+| Suffix        | Description        | CSI Driver                                 | Storage Class         |
+|---------------|--------------------|--------------------------------------------|-----------------------|
+|               | Generic            |                                            | standard              |
+| azure         | Microsoft Azure    | disk.csi.azure.com                         | managed-csi           |
+| aws           | AWS                | ebs.csi.aws.com                            | gp2                   |
+| opentelekomcloud | Open Telekom Cloud | disk.csi.everest.io<br/>obs.csi.everest.io | csi-disk<br/>csi-obs  |
+| bm            | Bare Metal         | democratic-csi (iscsi/nfs)                 | iscsi<br/>nfs         |
+| kind          | KiND               |                                            | rancher.io/local-path |
 
 ```sh
-kubectl apply -f config/samples/
+kubectl apply -f config/samples/ts_v1alpha1_typesensecluster_{{Suffix}}
 ```
 
-```yaml
+e.g. for AWS looks like:
+
+```yaml title=ts_v1alpha1_typesensecluster_aws.yaml
 apiVersion: ts.opentelekomcloud.com/v1alpha1
 kind: TypesenseCluster
 metadata:
@@ -226,14 +231,9 @@ spec:
   image: typesense/typesense:27.1
   replicas: 3
   storage:
-    size: 10Mi
-    storageClassName: typesense-local-path
+    size: 100Mi
+    storageClassName: gp2
 ```
-
-> [!CAUTION]
-> - The samples are tailored for KIND, change the `storageClassName` value according to your target environment.
-> - The 3rd sample is designed to portray a failing installation, `storageClassName` is set to `iscsi` which will fail on
-> any Kubernetes cluster that is not using [democratic-csi](https://github.com/democratic-csi/democratic-csi). 
 
 #### Uninstall CRDs
 To delete the CRDs from the cluster:

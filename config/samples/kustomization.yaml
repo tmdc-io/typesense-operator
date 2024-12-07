@@ -5,4 +5,5 @@ resources:
 - ts_v1alpha1_typesensecluster_bm.yaml
 - ts_v1alpha1_typesensecluster_kind.yaml
 - ts_v1alpha1_typesensecluster_opentelekomcloud.yaml
+- ts_v1alpha1_typesensecluster.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples
