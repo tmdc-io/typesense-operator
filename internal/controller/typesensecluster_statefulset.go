@@ -61,7 +61,7 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 ) (*appsv1.StatefulSet, error) {
 	sts := &appsv1.StatefulSet{
 		TypeMeta:   metav1.TypeMeta{},
-		ObjectMeta: getObjectMeta(ts, &key.Name),
+		ObjectMeta: getObjectMeta(ts, &key.Name, nil),
 		Spec: appsv1.StatefulSetSpec{
 			ServiceName:         fmt.Sprintf("%s-sts-svc", ts.Name),
 			PodManagementPolicy: appsv1.ParallelPodManagement,
@@ -70,7 +70,7 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 				MatchLabels: getLabels(ts),
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: getObjectMeta(ts, &key.Name),
+				ObjectMeta: getObjectMeta(ts, &key.Name, nil),
 				Spec: corev1.PodSpec{
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser:    ptr.To[int64](10000),
@@ -214,4 +214,20 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 	}
 
 	return sts, nil
+}
+
+func (r *TypesenseClusterReconciler) ScaleStatefulSet(ctx context.Context, sts *appsv1.StatefulSet, desiredReplicas int32) error {
+	if sts.Spec.Replicas != nil && *sts.Spec.Replicas == desiredReplicas {
+		r.logger.V(debugLevel).Info("statefulset already scaled to desired replicas", "name", sts.Name, "replicas", desiredReplicas)
+		return nil
+	}
+
+	desired := sts.DeepCopy()
+	desired.Spec.Replicas = &desiredReplicas
+	if err := r.Client.Update(ctx, desired); err != nil {
+		r.logger.Error(err, "updating stateful replicas failed", "name", desired.Name)
+		return err
+	}
+
+	return nil
 }

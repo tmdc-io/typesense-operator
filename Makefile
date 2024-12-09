@@ -52,7 +52,7 @@ OPERATOR_SDK_VERSION ?= v1.38.0
 # Image URL to use all building/pushing image targets
 DOCKER_HUB_NAME ?= $(shell docker info | sed '/Username:/!d;s/.* //')
 IMG_NAME ?= typesense-operator
-IMG_TAG ?= 0.2.0-rc.0
+IMG_TAG ?= 0.2.1
 IMG ?= $(DOCKER_HUB_NAME)/$(IMG_NAME):$(IMG_TAG)
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
@@ -200,11 +200,11 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 
 .PHONY: deploy-with-samples
 deploy-with-samples: kustomize generate manifests install ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/samples | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/samples | $(KUBECTL) apply -f config/samples/ts_v1alpha1_typesensecluster_kind.yaml
 
 .PHONY: samples
 samples: kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
-	$(KUSTOMIZE) build config/samples | $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/samples | $(KUBECTL) apply -f config/samples/ts_v1alpha1_typesensecluster_kind.yaml
 
 ##@ Dependencies
 
