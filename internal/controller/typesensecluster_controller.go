@@ -77,6 +77,7 @@ var (
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -131,6 +132,15 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	err = r.ReconcileIngress(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonIngressNotReady, err)
+		if cerr != nil {
+			err = errors.Wrap(err, cerr.Error())
+		}
+		return ctrl.Result{}, err
+	}
+
+	err = r.ReconcileScraper(ctx, ts)
+	if err != nil {
+		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonScrapersNotReady, err)
 		if cerr != nil {
 			err = errors.Wrap(err, cerr.Error())
 		}

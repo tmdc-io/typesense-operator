@@ -15,6 +15,8 @@ Key features of Typesense Kubernetes Operator include:
     - provision Typesense services (headless & discovery `Services`),
     - actively discover and update Typesense's nodes list (quorum configuration mounted as `ConfigMap`),
     - place claims for Typesense `PersistentVolumes`
+    - _optionally_ expose Typesense API endpoint via an `Ingress`
+    - _optionally_ provision one or multiple instances (one per target URL) of DocSearch as `Cronjobs`
 - **Raft Quorum Configuration & Recovery Automation**:
     - Continuous active (re)discovery of the quorum configuration reacting to changes in `ReplicaSet` **without the need of an additional sidecar container**,
     - Automatic recovery of a cluster that has lost quorum **without the need of manual intervention**.
@@ -78,15 +80,20 @@ The Typesense Kubernetes Operator manages the entire lifecycle of Typesense Clus
 4. A `StatefulSet` is then created. The quorum configuration stored in the `ConfigMap` is mounted as a volume in each `Pod`
    under `/usr/share/typesense/nodelist`. No `Pod` restart is necessary when the `ConfigMap` changes, as raft automatically
    detects and applies the updates.
+5. Optionally, an **nginx:alpine** workload is provisioned as `Deployment` and published via an `Ingress`, in order to exposed safely 
+   the Typesense REST/API endpoint outside the Kubernetes cluster **only** to selected referrers. The configuration of the 
+   nginx workload is stored in a `ConfigMap`.
+6. Optionally, one or more instances of **DocSearch** are deployed as distinct `CronJobs` (one per scraping target URL),
+   which based on user-defined schedules, periodically scrape the target sites and store the results in Typesense.
 
-![image](https://github.com/user-attachments/assets/30b6989c-c872-46ef-8ece-86c5d4911667)
+![image](https://github.com/user-attachments/assets/2afb802c-11f7-4be4-b44f-5dab9d489971)
 
 > [!NOTE]
 > The interval between reconciliation loops depends on the number of nodes. This approach ensures raft has sufficient
 > "breathing room" to carry out its operations—such as leader election, log replication, and bootstrapping—before the
 > next quorum health reconciliation begins.
 
-5. The controller assesses the quorum's health by probing each node at `http://{nodeUrl}:{api-port}/health`. Based on the
+7. The controller assesses the quorum's health by probing each node at `http://{nodeUrl}:{api-port}/health`. Based on the
    results, it formulates an action plan for the next reconciliation loop. This process is detailed in the following section:
 
 ### Problem 2: Recovering a cluster that has lost quorum
@@ -146,7 +153,7 @@ of manual intervention in order to recover a cluster that has lost quorum.
 Typesense Kubernetes Operator is controlling the lifecycle of multiple Typesense instances in the same Kubernetes cluster by
 introducing `TypesenseCluster`, a new Custom Resource Definition:
 
-![image](https://github.com/user-attachments/assets/23e40781-ca21-4297-93bf-2b5dbebc7e0e)
+![image](https://github.com/user-attachments/assets/3dd20498-fb4b-46b7-9f60-ff413fadc942)
 
 **Spec**
 
@@ -160,6 +167,7 @@ introducing `TypesenseCluster`, a new Custom Resource Definition:
 | corsDomains       | domains that would be allowed for CORS calls | X        |         |
 | storage           | check StorageSpec below                      |          |         |
 | ingress           | check IngressSpec below                      | X        |         |
+| scrapers          | array of DocSearchScraperSpec; check below   | X        |         |
 
 **StorageSpec** (optional)
 
@@ -178,12 +186,27 @@ introducing `TypesenseCluster`, a new Custom Resource Definition:
 | ingressClassName | Ingress to use                       |          |         |
 | annotations      | User-Defined annotations             | X        |         |
 
+> [!IMPORTANT]
+> This feature requires the existence of [cert-manager](https://cert-manager.io/) in the cluster, but **does not** actively enforce it with an error.
+> If you are targeting Open Telekom Cloud, you might be interested in provisioning additionally the designated DNS solver webhook
+> for Open Telekom Cloud. You can find it [here](https://github.com/akyriako/cert-manager-webhook-opentelekomcloud).
+
+**DocSearchScraperSpec** (optional)
+
+| Name        | Description                              | Optional | Default |
+|-------------|------------------------------------------|----------|---------|
+| name        | name of the scraper                      |          |         |
+| image       | container image to use                   |          |         |
+| config      | config to use                            |          |         |
+| schedule    | cron expression; no timezone; no seconds |          |         |
+
 > [!CAUTION]
 > Although in Typesense documentation under _Production Best Practices_ -> _Configuration_ is stated:
 > "_Typesense comes built-in with a high performance HTTP server (opens new window)that is used by likes of Fastly (opens new window)in 
 > their edge servers at scale. So Typesense can be directly exposed to incoming public-facing internet traffic, 
-> without the need to place it behind another web server like Nginx / Apache or your backend API._" it is highly recommended
-> , from this operator's perspective, to always expose Typesense behind a reverse proxy (using the `referer` option).
+> without the need to place it behind another web server like Nginx / Apache or your backend API._" 
+> 
+> It is highly recommended, from this operator's perspective, to always expose Typesense behind a reverse proxy (using the `referer` option).
 
 
 **Status**
