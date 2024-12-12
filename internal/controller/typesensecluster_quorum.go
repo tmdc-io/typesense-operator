@@ -34,7 +34,7 @@ func (r *TypesenseClusterReconciler) ReconcileQuorum(ctx context.Context, ts tsv
 }
 
 func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *tsv1alpha1.TypesenseCluster, sts *appsv1.StatefulSet) (ConditionQuorum, int, error) {
-	configMapName := fmt.Sprintf("%s-nodeslist", ts.Name)
+	configMapName := fmt.Sprintf(ClusterNodesConfigMap, ts.Name)
 	configMapObjectKey := client.ObjectKey{Namespace: ts.Namespace, Name: configMapName}
 
 	var cm = &v1.ConfigMap{}
@@ -98,13 +98,14 @@ func (r *TypesenseClusterReconciler) getQuorumHealth(ctx context.Context, ts *ts
 	if healthyNodes < minRequiredNodes {
 		if sts.Status.ReadyReplicas > 1 {
 			r.logger.Info("downgrading quorum")
+			desiredReplicas := int32(1)
 
-			_, size, err := r.updateConfigMap(ctx, ts, cm, ptr.To[int32](1))
+			_, size, err := r.updateConfigMap(ctx, ts, cm, ptr.To[int32](desiredReplicas))
 			if err != nil {
 				return ConditionReasonQuorumNotReady, 0, err
 			}
 
-			err = r.ScaleStatefulSet(ctx, sts, 1)
+			err = r.ScaleStatefulSet(ctx, sts, desiredReplicas)
 			if err != nil {
 				return ConditionReasonQuorumNotReady, 0, err
 			}
