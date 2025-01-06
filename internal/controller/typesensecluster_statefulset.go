@@ -7,7 +7,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/utils/ptr"
@@ -60,6 +59,9 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 	key client.ObjectKey,
 	ts *tsv1alpha1.TypesenseCluster,
 ) (*appsv1.StatefulSet, error) {
+
+	envFrom := ts.Spec.GetAdditionalServerConfiguration()
+
 	sts := &appsv1.StatefulSet{
 		TypeMeta:   metav1.TypeMeta{},
 		ObjectMeta: getObjectMeta(ts, &key.Name, nil),
@@ -127,7 +129,7 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 								},
 								{
 									Name:  "TYPESENSE_ENABLE_CORS",
-									Value: strconv.FormatBool(ts.Spec.IsCorsEnabled()),
+									Value: strconv.FormatBool(ts.Spec.EnableCors),
 								},
 								{
 									Name:  "TYPESENSE_CORS_DOMAINS",
@@ -138,16 +140,8 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 									Value: strconv.FormatBool(ts.Spec.ResetPeersOnError),
 								},
 							},
-							Resources: corev1.ResourceRequirements{
-								Limits: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("1024m"),
-									corev1.ResourceMemory: resource.MustParse("512Mi"),
-								},
-								Requests: corev1.ResourceList{
-									corev1.ResourceCPU:    resource.MustParse("128m"),
-									corev1.ResourceMemory: resource.MustParse("256Mi"),
-								},
-							},
+							EnvFrom:   envFrom,
+							Resources: ts.Spec.GetResources(),
 							VolumeMounts: []corev1.VolumeMount{
 								{
 									MountPath: "/usr/share/typesense",
@@ -160,6 +154,8 @@ func (r *TypesenseClusterReconciler) createStatefulSet(
 							},
 						},
 					},
+					NodeSelector: ts.Spec.NodeSelector,
+					Tolerations:  ts.Spec.Tolerations,
 					Volumes: []corev1.Volume{
 						{
 							Name: "nodeslist",
