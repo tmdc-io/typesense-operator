@@ -17,6 +17,7 @@ Key features of Typesense Kubernetes Operator include:
     - place claims for Typesense `PersistentVolumes`
     - _optionally_ expose Typesense API endpoint via an `Ingress`
     - _optionally_ provision one or multiple instances (one per target URL) of DocSearch as `Cronjobs`
+    - _optionally_ provision a Prometheus [target](https://prometheus.io/docs/guides/multi-target-exporter/) via a `ServiceMonitor`
 - **Raft Quorum Configuration & Recovery Automation**:
     - Continuous active (re)discovery of the quorum configuration reacting to changes in `ReplicaSet` **without the need of an additional sidecar container**,
     - Automatic recovery of a cluster that has lost quorum **without the need of manual intervention**.
@@ -47,8 +48,8 @@ documentation of Typesense when it comes to [recovering a cluster that has lost 
 it is explicitly stated:
 
 > If a Typesense cluster loses more than `(N-1)/2` nodes at the same time, the cluster becomes unstable because it loses quorum
-and the remaining node(s) cannot safely build consensus on which node is the leader. To avoid a potential split brain issue,
-Typesense then stops accepting writes and reads **until some manual verification and intervention is done**.
+> and the remaining node(s) cannot safely build consensus on which node is the leader. To avoid a potential split brain issue,
+> Typesense then stops accepting writes and reads **until some manual verification and intervention is done**.
 
 ![image](https://github.com/user-attachments/assets/a28357bf-199f-45e7-9ce4-9557043bfc20)
 
@@ -101,7 +102,7 @@ The Typesense Kubernetes Operator manages the entire lifecycle of Typesense Clus
 6. Optionally, one or more instances of **DocSearch** are deployed as distinct `CronJobs` (one per scraping target URL),
    which based on user-defined schedules, periodically scrape the target sites and store the results in Typesense.
 
-![image](https://github.com/user-attachments/assets/2afb802c-11f7-4be4-b44f-5dab9d489971)
+![image](https://github.com/user-attachments/assets/bec0d5dc-4db5-40da-a4fa-c8e0226b4d33)
 
 > [!NOTE]
 > The interval between reconciliation loops depends on the number of nodes. This approach ensures raft has sufficient
@@ -168,7 +169,7 @@ of manual intervention in order to recover a cluster that has lost quorum.
 Typesense Kubernetes Operator is controlling the lifecycle of multiple Typesense instances in the same Kubernetes cluster by
 introducing `TypesenseCluster`, a new Custom Resource Definition:
 
-![image](https://github.com/user-attachments/assets/3dd20498-fb4b-46b7-9f60-ff413fadc942)
+![image](https://github.com/user-attachments/assets/841ad290-0401-4d7c-b85f-60a219ba88c5)
 
 **Spec**
 
@@ -189,6 +190,7 @@ introducing `TypesenseCluster`, a new Custom Resource Definition:
 | storage                       | check `StorageSpec` below                                |          |               |
 | ingress                       | check `IngressSpec` below                                | X        |               |
 | scrapers                      | array of `DocSearchScraperSpec`; check below             | X        |               |
+| metrics                       | check `MetricsSpec` below                                | X        |               |
 
 > [!IMPORTANT]
 > * Any Typesense server configuration variable that is defined in Spec is overriding any additional reference of
@@ -235,6 +237,38 @@ introducing `TypesenseCluster`, a new Custom Resource Definition:
 > without the need to place it behind another web server like Nginx / Apache or your backend API._" 
 > 
 > It is highly recommended, from this operator's perspective, to always expose Typesense behind a reverse proxy (using the `referer` option).
+
+**MetricsSpec** (optional)
+
+| Name     | Description                               | Optional | Default                                        |
+|----------|-------------------------------------------|----------|------------------------------------------------|
+| image    | container image to use                    | X        | akyriako78/typesense-prometheus-exporter:0.1.7 |
+| release  | Prometheus release to become a target of  |          |                                                |
+| interval | interval in _seconds_ between two scrapes | X        | 15                                             |
+
+> [!TIP]
+> If you've provisioned Prometheus via [kube-prometheus-stack](https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/README.md), 
+> you can find the corresponding `release` value of your Prometheus instance by checking the labels of the operator pod e.g:
+> 
+> ```bash
+> kubectl describe pod {kube-prometheus-stack-operator-pod} -n {kube-prometheus-stack-namespace}
+> 
+> name:             promstack-kube-prometheus-operator-755485dc68-dmkw2
+> Namespace:        monitoring
+> [...]
+> Labels:           app=kube-prometheus-stack-operator
+> app.kubernetes.io/component=prometheus-operator
+> app.kubernetes.io/instance=promstack
+> app.kubernetes.io/managed-by=Helm
+> app.kubernetes.io/name=kube-prometheus-stack-prometheus-operator
+> app.kubernetes.io/part-of=kube-prometheus-stack
+> app.kubernetes.io/version=67.8.0
+> chart=kube-prometheus-stack-67.8.0
+> heritage=Helm
+> pod-template-hash=755485dc68
+> release=promstack
+> [...]
+> ```
 
 
 **Status**
@@ -283,14 +317,14 @@ make deploy IMG=<some-registry>/typesense-operator:<tag>
 
 Provision one of the samples available in `config/samples`:
 
-| Suffix        | Description        | CSI Driver                                 | Storage Class         |
-|---------------|--------------------|--------------------------------------------|-----------------------|
-|               | Generic            |                                            | standard              |
-| azure         | Microsoft Azure    | disk.csi.azure.com                         | managed-csi           |
-| aws           | AWS                | ebs.csi.aws.com                            | gp2                   |
+| Suffix           | Description        | CSI Driver                                 | Storage Class         |
+|------------------|--------------------|--------------------------------------------|-----------------------|
+|                  | Generic            |                                            | standard              |
+| azure            | Microsoft Azure    | disk.csi.azure.com                         | managed-csi           |
+| aws              | AWS                | ebs.csi.aws.com                            | gp2                   |
 | opentelekomcloud | Open Telekom Cloud | disk.csi.everest.io<br/>obs.csi.everest.io | csi-disk<br/>csi-obs  |
-| bm            | Bare Metal         | democratic-csi (iscsi/nfs)                 | iscsi<br/>nfs         |
-| kind          | KiND               |                                            | rancher.io/local-path |
+| bm               | Bare Metal         | democratic-csi (iscsi/nfs)                 | iscsi<br/>nfs         |
+| kind             | KiND               |                                            | rancher.io/local-path |
 
 ```sh
 kubectl apply -f config/samples/ts_v1alpha1_typesensecluster_{{Suffix}}.yaml

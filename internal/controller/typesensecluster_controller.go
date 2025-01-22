@@ -24,6 +24,7 @@ import (
 	"golang.org/x/text/language"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -39,9 +40,10 @@ import (
 // TypesenseClusterReconciler reconciles a TypesenseCluster object
 type TypesenseClusterReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	logger   logr.Logger
-	Recorder record.EventRecorder
+	Scheme          *runtime.Scheme
+	logger          logr.Logger
+	Recorder        record.EventRecorder
+	DiscoveryClient *discovery.DiscoveryClient
 }
 
 type TypesenseClusterReconciliationPhase struct {
@@ -80,6 +82,7 @@ var (
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -143,6 +146,15 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	err = r.ReconcileScraper(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonScrapersNotReady, err)
+		if cerr != nil {
+			err = errors.Wrap(err, cerr.Error())
+		}
+		return ctrl.Result{}, err
+	}
+
+	err = r.ReconcileMetricsExporter(ctx, ts)
+	if err != nil {
+		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonMetricsExporterNotReady, err)
 		if cerr != nil {
 			err = errors.Wrap(err, cerr.Error())
 		}
