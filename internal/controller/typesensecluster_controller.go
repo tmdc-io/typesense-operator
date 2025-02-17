@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/pkg/errors"
 	"golang.org/x/text/cases"
@@ -107,6 +108,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// Update strategy: Admin Secret is Immutable, will not be updated on any future change
 	err = r.ReconcileSecret(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonSecretNotReady, err)
@@ -116,6 +118,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// Update strategy: Update the existing object, if changes are identified in the desired.Data["nodes"]
 	updated, err := r.ReconcileConfigMap(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonConfigMapNotReady, err)
@@ -125,6 +128,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// Update strategy: Update the existing objects, if changes are identified in api and peering ports
 	err = r.ReconcileServices(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonServicesNotReady, err)
@@ -134,6 +138,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// Update strategy: Update the existing objects, if changes are identified in api and peering ports
 	err = r.ReconcileIngress(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonIngressNotReady, err)
@@ -143,6 +148,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// Update strategy: Drop the existing objects and recreate them, if changes are identified
 	err = r.ReconcileScraper(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonScrapersNotReady, err)
@@ -152,6 +158,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// Update strategy: Update the Deployment if image changed. Drop the existing ServiceMonitor and recreate it, if changes are identified
 	err = r.ReconcileMetricsExporter(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonMetricsExporterNotReady, err)
@@ -161,6 +168,8 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
+	// Update strategy: Update the whole specs when changes are identified
+	// Update the whole specs when changes are identified
 	sts, err := r.ReconcileStatefulSet(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonStatefulSetNotReady, err)
@@ -227,8 +236,12 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		}
 	}
 
+	lastAction := "bootstrapping"
+	if *updated {
+		lastAction = "reconciling"
+	}
 	requeueAfter = time.Duration(delayPerReplicaFactor*60+terminationGracePeriodSeconds) * time.Second
-	r.logger.Info("reconciling cluster completed", "requeueAfter", requeueAfter)
+	r.logger.Info(fmt.Sprintf("%s cluster completed", lastAction), "requeueAfter", requeueAfter)
 
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }

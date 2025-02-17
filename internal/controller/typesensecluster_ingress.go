@@ -1,10 +1,14 @@
 package controller
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"maps"
+	"strconv"
 	"strings"
+	"text/template"
+	"time"
 
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -14,28 +18,37 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	conf = `events {}
-				http {
-              %s
-				  server {
-					listen 80;
+const (
+	confTemplate = `events {}
+		http {
+		  {{- if .HttpDirectives}}
+		  {{.HttpDirectives}}
+		  {{- end}}
+		  server {
+			listen 80;
+		
+			{{- if .Referer}}
+			{{.Referer}}
+			{{- end}}
+			{{- if .ServerDirectives}}
+			{{.ServerDirectives}}
+			{{- end}}
+			location / {
+			  proxy_pass http://{{.ServiceName}}-svc:{{.ServicePort}}/;
+			  proxy_pass_request_headers on;
+		
+			  {{- if .LocationDirectives}}
+			  {{.LocationDirectives}}
+			  {{- end}}
+			}
+		  }
+		}`
 
-					%s
-					%s 
-
-					location / {
-					proxy_pass http://%s-svc:8108/;
-					proxy_pass_request_headers on;
-
-				%s
-					}
-				}
-			}`
 
 	referer = `valid_referers server_names %s;   
 					if ($invalid_referer) {  
@@ -74,6 +87,21 @@ func (r *TypesenseClusterReconciler) ReconcileIngress(ctx context.Context, ts ts
 			r.logger.Error(err, "creating ingress failed", "ingress", ingressObjectKey.Name)
 			return err
 		}
+	} else {
+		if ts.Spec.Ingress.Host != ig.Spec.Rules[0].Host ||
+			ts.Spec.Ingress.ClusterIssuer != ig.Annotations["cert-manager.io/cluster-issuer"] ||
+			!reflect.DeepEqual(ts.Spec.Ingress.Annotations, r.getIngressAnnotations(ig)) ||
+			ts.Spec.Ingress.IngressClassName != *ig.Spec.IngressClassName {
+
+			r.logger.V(debugLevel).Info("updating ingress", "ingress", ingressObjectKey.Name)
+
+			ig, err = r.updateIngress(ctx, *ig, &ts)
+			if err != nil {
+				r.logger.Error(err, "updating ingress failed", "ingress", ingressObjectKey.Name)
+				return err
+			}
+		}
+
 	}
 
 	configMapName := fmt.Sprintf(ClusterReverseProxyConfigMap, ts.Name)
@@ -90,6 +118,7 @@ func (r *TypesenseClusterReconciler) ReconcileIngress(ctx context.Context, ts ts
 		}
 	}
 
+	configMapUpdated := false
 	if !configMapExists {
 		r.logger.V(debugLevel).Info("creating ingress config map", "configmap", configMapObjectKey.Name)
 
@@ -99,11 +128,20 @@ func (r *TypesenseClusterReconciler) ReconcileIngress(ctx context.Context, ts ts
 			return err
 		}
 	} else {
-		r.logger.V(debugLevel).Info("updating ingress config map", "configmap", configMapObjectKey.Name)
-
-		_, err = r.updateIngressConfigMap(ctx, cm, &ts)
+		shouldUpdate, err := r.shouldUpdateIngressConfigMap(cm, &ts)
 		if err != nil {
 			return err
+		}
+
+		if shouldUpdate {
+			r.logger.V(debugLevel).Info("updating ingress config map", "configmap", configMapObjectKey.Name)
+
+			_, err = r.updateIngressConfigMap(ctx, cm, &ts)
+			if err != nil {
+				return err
+			}
+
+			configMapUpdated = true
 		}
 	}
 
@@ -128,6 +166,20 @@ func (r *TypesenseClusterReconciler) ReconcileIngress(ctx context.Context, ts ts
 		if err != nil {
 			r.logger.Error(err, "creating ingress reverse proxy deployment failed", "deployment", deploymentObjectKey.Name)
 			return err
+		}
+	} else {
+		if configMapUpdated {
+			if deployment.Spec.Template.Annotations == nil {
+				deployment.Spec.Template.Annotations = make(map[string]string)
+			}
+
+			r.logger.V(debugLevel).Info("adding restart annotation to ingress reverse proxy deployment", "deployment", deploymentObjectKey.Name)
+			deployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+
+			if err := r.Update(ctx, deployment); err != nil {
+				r.logger.Error(err, "adding restart annotation to ingress reverse proxy deployment failed", "deployment", deploymentObjectKey.Name)
+				return err
+			}
 		}
 	}
 
@@ -215,6 +267,27 @@ func (r *TypesenseClusterReconciler) createIngress(ctx context.Context, key clie
 	return ingress, nil
 }
 
+func (r *TypesenseClusterReconciler) updateIngress(ctx context.Context, ig networkingv1.Ingress, ts *tsv1alpha1.TypesenseCluster) (*networkingv1.Ingress, error) {
+	patch := client.MergeFrom(ig.DeepCopy())
+
+	ig.Spec.Rules[0].Host = ts.Spec.Ingress.Host
+	ig.Spec.IngressClassName = ptr.To[string](ts.Spec.Ingress.IngressClassName)
+
+	annotations := map[string]string{}
+	annotations["cert-manager.io/cluster-issuer"] = ts.Spec.Ingress.ClusterIssuer
+
+	if ts.Spec.Ingress.Annotations != nil {
+		maps.Copy(annotations, ts.Spec.Ingress.Annotations)
+	}
+	ig.Annotations = annotations
+
+	if err := r.Patch(ctx, &ig, patch); err != nil {
+		return nil, err
+	}
+
+	return &ig, nil
+}
+
 func (r *TypesenseClusterReconciler) deleteIngress(ctx context.Context, ig *networkingv1.Ingress) error {
 	err := r.Delete(ctx, ig)
 	if err != nil {
@@ -224,15 +297,34 @@ func (r *TypesenseClusterReconciler) deleteIngress(ctx context.Context, ig *netw
 	return nil
 }
 
+func (r *TypesenseClusterReconciler) getIngressAnnotations(ig *networkingv1.Ingress) map[string]string {
+	annotations := make(map[string]string, len(ig.Annotations))
+	for k, v := range ig.Annotations {
+		annotations[k] = v
+	}
+
+	delete(annotations, "cert-manager.io/cluster-issuer")
+	if len(annotations) == 0 {
+		annotations = nil
+	}
+
+	return annotations
+}
+
 func (r *TypesenseClusterReconciler) createIngressConfigMap(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster, ig *networkingv1.Ingress) (*v1.ConfigMap, error) {
+	nginxConf, err := r.getIngressNginxConf(ts)
+	if err != nil {
+		return nil, err
+	}
+
 	icm := &v1.ConfigMap{
 		ObjectMeta: getReverseProxyObjectMeta(ts, &key.Name, nil),
 		Data: map[string]string{
-			"nginx.conf": r.getIngressNginxConf(ts),
+			"nginx.conf": nginxConf,
 		},
 	}
 
-	err := ctrl.SetControllerReference(ig, icm, r.Scheme)
+	err = ctrl.SetControllerReference(ig, icm, r.Scheme)
 	if err != nil {
 		return nil, err
 	}
@@ -246,23 +338,35 @@ func (r *TypesenseClusterReconciler) createIngressConfigMap(ctx context.Context,
 }
 
 func (r *TypesenseClusterReconciler) updateIngressConfigMap(ctx context.Context, cm *v1.ConfigMap, ts *tsv1alpha1.TypesenseCluster) (*v1.ConfigMap, error) {
-	desired := cm.DeepCopy()
-	desired.Data = map[string]string{
-		"nginx.conf": r.getIngressNginxConf(ts),
+	nginxConf, err := r.getIngressNginxConf(ts)
+	if err != nil {
+		return nil, err
 	}
 
-	if cm.Data["nginx.conf"] != desired.Data["nginx.conf"] {
-		err := r.Update(ctx, desired)
-		if err != nil {
-			r.logger.Error(err, "updating ingress config map failed")
-			return nil, err
-		}
+	desired := cm.DeepCopy()
+	desired.Data = map[string]string{
+		"nginx.conf": nginxConf,
+	}
+
+	err = r.Update(ctx, desired)
+	if err != nil {
+		r.logger.Error(err, "updating ingress config map failed")
+		return nil, err
 	}
 
 	return desired, nil
 }
 
-func (r *TypesenseClusterReconciler) getIngressNginxConf(ts *tsv1alpha1.TypesenseCluster) string {
+func (r *TypesenseClusterReconciler) shouldUpdateIngressConfigMap(cm *v1.ConfigMap, ts *tsv1alpha1.TypesenseCluster) (bool, error) {
+	nginxConf, err := r.getIngressNginxConf(ts)
+	if err != nil {
+		return false, err
+	}
+
+	return cm.Data["nginx.conf"] != nginxConf, nil
+}
+
+func (r *TypesenseClusterReconciler) getIngressNginxConf(ts *tsv1alpha1.TypesenseCluster) (string, error) {
 	ref := ""
 	if ts.Spec.Ingress != nil && ts.Spec.Ingress.Referer != nil {
 		ref = fmt.Sprintf(referer, *ts.Spec.Ingress.Referer)
@@ -283,7 +387,37 @@ func (r *TypesenseClusterReconciler) getIngressNginxConf(ts *tsv1alpha1.Typesens
 		locationDirectives = strings.ReplaceAll(*ts.Spec.Ingress.LocationDirectives, ";", ";\n")
 	}
 
-	return fmt.Sprintf(conf, httpDirectives, ref, serverDirectives, ts.Name, locationDirectives)
+	nginxConfData := struct {
+		HttpDirectives     string
+		ServerDirectives   string
+		LocationDirectives string
+		Referer            string
+		ServiceName        string
+		ServicePort        string
+	}{
+		HttpDirectives:     httpDirectives,
+		ServerDirectives:   serverDirectives,
+		LocationDirectives: locationDirectives,
+		Referer:            ref,
+		ServiceName:        ts.Name,
+		ServicePort:        strconv.Itoa(ts.Spec.ApiPort),
+	}
+
+	tmpl, err := template.New("nginxConf").Parse(confTemplate)
+	if err != nil {
+		r.logger.Error(err, "error parsing template")
+		return "", err
+	}
+
+	var outputBuffer bytes.Buffer
+	err = tmpl.Execute(&outputBuffer, nginxConfData)
+	if err != nil {
+		r.logger.Error(err, "error executing template")
+		return "", err
+	}
+
+	conf := outputBuffer.String()
+	return conf, nil
 }
 
 func (r *TypesenseClusterReconciler) createIngressDeployment(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster, ig *networkingv1.Ingress) (*appsv1.Deployment, error) {
