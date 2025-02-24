@@ -11,13 +11,15 @@ Key features of Typesense Kubernetes Operator include:
 - **Custom Resource Management**: Provides a Kubernetes-native interface to define and manage Typesense cluster configurations using a CRD named `TypesenseCluster`.
 - **Typesense Lifecycle Automation**: Simplifies deploying, scaling, and managing Typesense clusters. Handles aspects like:
     - bootstrap Typesense's Admin API Key creation as a `Secret`,
-    - deploy Typesense as a `StatefulSet`,
+    - deploy Typesense as a `StatefulSet`, each Pod contains two containers: 
+      1. the _Typesense node_ itself based on the image provided in the `specs`
+      2. the _Typesense node metrics exporter_ (as a sidecar), based on the image provided in the `spec.metricsSpec`
     - provision Typesense services (headless & discovery `Services`),
     - actively discover and update Typesense's nodes list (quorum configuration mounted as `ConfigMap`),
     - place claims for Typesense `PersistentVolumes`
     - _optionally_ expose Typesense API endpoint via an `Ingress`
     - _optionally_ provision one or multiple instances (one per target URL) of DocSearch as `Cronjobs`
-    - _optionally_ provision a Prometheus [target](https://prometheus.io/docs/guides/multi-target-exporter/) via a `ServiceMonitor`
+    - _optionally_ provision Prometheus [targets](https://prometheus.io/docs/guides/multi-target-exporter/) for the `Pod` metrics via a `PodMonitor`
 - **Raft Quorum Configuration & Recovery Automation**:
     - Continuous active (re)discovery of the quorum configuration reacting to changes in `ReplicaSet` **without the need of an additional sidecar container**,
     - Automatic recovery of a cluster that has lost quorum **without the need of manual intervention**.
@@ -105,7 +107,7 @@ The Typesense Kubernetes Operator manages the entire lifecycle of Typesense Clus
 6. Optionally, one or more instances of **DocSearch** are deployed as distinct `CronJobs` (one per scraping target URL),
    which based on user-defined schedules, periodically scrape the target sites and store the results in Typesense.
 
-![image](https://github.com/user-attachments/assets/bec0d5dc-4db5-40da-a4fa-c8e0226b4d33)
+![Untitled-2025-02-24-0826](https://github.com/user-attachments/assets/6e6d67cf-4bab-4eac-ada0-8e4c6f46537d)
 
 > [!NOTE]
 > The interval between reconciliation loops depends on the number of nodes. This approach ensures raft has sufficient
