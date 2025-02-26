@@ -265,8 +265,9 @@ func (r *TypesenseClusterReconciler) buildStatefulSet(key client.ObjectKey, ts *
 							},
 						},
 					},
-					NodeSelector: ts.Spec.NodeSelector,
-					Tolerations:  ts.Spec.Tolerations,
+					NodeSelector:              ts.Spec.NodeSelector,
+					Tolerations:               ts.Spec.Tolerations,
+					TopologySpreadConstraints: ts.Spec.GetTopologySpreadConstraints(getLabels(ts)),
 					Volumes: []corev1.Volume{
 						{
 							Name: "nodeslist",
@@ -358,6 +359,10 @@ func (r *TypesenseClusterReconciler) shouldUpdateStatefulSet(sts *appsv1.Statefu
 	}
 
 	if !reflect.DeepEqual(sts.Spec.Template.Spec.Tolerations, ts.Spec.Tolerations) {
+		return true
+	}
+
+	if !reflect.DeepEqual(sts.Spec.Template.Spec.TopologySpreadConstraints, ts.Spec.GetTopologySpreadConstraints(getLabels(ts))) {
 		return true
 	}
 
