@@ -13,6 +13,7 @@ controllerManager:
     image:
       repository: akyriako78/typesense-operator
       tag: 0.2.14
+    imagePullPolicy: IfNotPresent
     resources:
       limits:
         cpu: 500m
