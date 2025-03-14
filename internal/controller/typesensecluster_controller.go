@@ -77,7 +77,8 @@ var (
 // +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;delete
+// +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;delete;update;patch
+// +kubebuilder:rbac:groups="",resources=pods/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
@@ -110,7 +111,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	// Update strategy: Admin Secret is Immutable, will not be updated on any future change
-	err = r.ReconcileSecret(ctx, ts)
+	secret, err := r.ReconcileSecret(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonSecretNotReady, err)
 		if cerr != nil {
@@ -119,7 +120,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	// Update strategy: Update the existing object, if changes are identified in the desired.Data["nodes"]
+	// Update strategy: Update the existing object, if changes are identified in the desired.Data["Nodes"]
 	updated, err := r.ReconcileConfigMap(ctx, ts)
 	if err != nil {
 		cerr := r.setConditionNotReady(ctx, &ts, ConditionReasonConfigMapNotReady, err)
@@ -181,21 +182,20 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	}
 
 	terminationGracePeriodSeconds := *sts.Spec.Template.Spec.TerminationGracePeriodSeconds
-	delayPerReplicaFactor := getDelayPerReplicaFactor(int(ts.Spec.Replicas))
-
 	toTitle := func(s string) string {
 		return cases.Title(language.Und, cases.NoLower).String(s)
 	}
 
+	cond := ConditionReasonQuorumStateUnknown
 	if *updated {
-		condition, size, err := r.ReconcileQuorum(ctx, ts, *sts)
+		condition, _, err := r.ReconcileQuorum(ctx, &ts, secret, client.ObjectKeyFromObject(sts))
 		if err != nil {
-			r.logger.Error(err, "reconciling quorum failed")
+			r.logger.Error(err, "reconciling quorum health failed")
 		}
 
 		if condition == ConditionReasonQuorumNeedsAttention {
 			if err == nil {
-				err = errors.New("quorum is not ready")
+				err = errors.New("quorum is needs manual intervention")
 			}
 			cerr := r.setConditionNotReady(ctx, &ts, string(condition), err)
 			if cerr != nil {
@@ -204,8 +204,7 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 			r.Recorder.Eventf(&ts, "Warning", string(condition), toTitle(err.Error()))
 
-			delayPerReplicaFactor = getDelayPerReplicaFactor(size)
-			requeueAfter = time.Duration(delayPerReplicaFactor*60+terminationGracePeriodSeconds) * time.Second
+			requeueAfter = time.Duration((60+terminationGracePeriodSeconds)*3) * time.Second
 			return ctrl.Result{RequeueAfter: requeueAfter}, err
 		} else {
 			if condition != ConditionReasonQuorumReady {
@@ -218,8 +217,6 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				}
 
 				r.Recorder.Eventf(&ts, "Warning", string(condition), toTitle(err.Error()))
-
-				delayPerReplicaFactor = getDelayPerReplicaFactor(size)
 			} else {
 				report := ts.Status.Conditions[0].Status != metav1.ConditionTrue
 
@@ -231,18 +228,17 @@ func (r *TypesenseClusterReconciler) Reconcile(ctx context.Context, req ctrl.Req
 				if report {
 					r.Recorder.Eventf(&ts, "Normal", string(condition), toTitle("quorum is ready"))
 				}
-
-				delayPerReplicaFactor = minDelayPerReplicaFactor
 			}
 		}
+		cond = condition
 	}
 
 	lastAction := "bootstrapping"
 	if *updated {
 		lastAction = "reconciling"
 	}
-	requeueAfter = time.Duration(delayPerReplicaFactor*60+terminationGracePeriodSeconds) * time.Second
-	r.logger.Info(fmt.Sprintf("%s cluster completed", lastAction), "requeueAfter", requeueAfter)
+	requeueAfter = time.Duration(60+terminationGracePeriodSeconds) * time.Second
+	r.logger.Info(fmt.Sprintf("%s cluster completed", lastAction), "condition", cond, "requeueAfter", requeueAfter)
 
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
 }

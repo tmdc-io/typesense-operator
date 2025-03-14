@@ -17,7 +17,9 @@ import (
 )
 
 const (
-	metricsPort = 9100
+	metricsPort                        = 9100
+	startupProbeFailureThreshold int32 = 30
+	startupProbePeriodSeconds    int32 = 10
 )
 
 func (r *TypesenseClusterReconciler) ReconcileStatefulSet(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (*appsv1.StatefulSet, error) {
@@ -60,6 +62,8 @@ func (r *TypesenseClusterReconciler) ReconcileStatefulSet(ctx context.Context, t
 			string(ConditionReasonQuorumNeedsAttention),
 			string(ConditionReasonQuorumNotReady),
 			ConditionReasonStatefulSetNotReady,
+			ConditionReasonReconciliationInProgress,
+			string(ConditionReasonQuorumNotReadyWaitATerm),
 		}
 
 		if !contains(skipConditions, r.getConditionReady(&ts).Reason) {
@@ -144,6 +148,11 @@ func (r *TypesenseClusterReconciler) buildStatefulSet(key client.ObjectKey, ts *
 						RunAsGroup:   ptr.To[int64](3000),
 						RunAsNonRoot: ptr.To[bool](true)},
 					TerminationGracePeriodSeconds: ptr.To[int64](5),
+					ReadinessGates: []corev1.PodReadinessGate{
+						{
+							ConditionType: PodReadinessGateCondition,
+						},
+					},
 					Containers: []corev1.Container{
 						{
 							Name:            "typesense",
@@ -155,6 +164,27 @@ func (r *TypesenseClusterReconciler) buildStatefulSet(key client.ObjectKey, ts *
 									ContainerPort: int32(ts.Spec.ApiPort),
 								},
 							},
+							//StartupProbe: &corev1.Probe{
+							//	ProbeHandler: corev1.ProbeHandler{
+							//		HTTPGet: &corev1.HTTPGetAction{
+							//			Path: "/health",
+							//			Port: intstr.FromInt32(int32(ts.Spec.ApiPort)),
+							//		},
+							//	},
+							//	InitialDelaySeconds: 5,
+							//	FailureThreshold:    startupProbeFailureThreshold,
+							//	PeriodSeconds:       startupProbePeriodSeconds,
+							//},
+							//LivenessProbe: &corev1.Probe{
+							//	ProbeHandler: corev1.ProbeHandler{
+							//		HTTPGet: &corev1.HTTPGetAction{
+							//			Path: "/health",
+							//			Port: intstr.FromInt32(int32(ts.Spec.ApiPort)),
+							//		},
+							//	},
+							//	InitialDelaySeconds: 5,
+							//	PeriodSeconds:       15,
+							//},
 							Env: []corev1.EnvVar{
 								{
 									Name: "TYPESENSE_API_KEY",
@@ -169,7 +199,7 @@ func (r *TypesenseClusterReconciler) buildStatefulSet(key client.ObjectKey, ts *
 								},
 								{
 									Name:  "TYPESENSE_NODES",
-									Value: "/usr/share/typesense/nodes",
+									Value: "/usr/share/typesense/Nodes",
 								},
 								{
 									Name:  "TYPESENSE_DATA_DIR",
@@ -419,4 +449,14 @@ func (r *TypesenseClusterReconciler) PurgeStatefulSetPods(ctx context.Context, s
 	}
 
 	return nil
+}
+
+func (r *TypesenseClusterReconciler) GetFreshStatefulSet(ctx context.Context, stsObjectKey client.ObjectKey) (*appsv1.StatefulSet, error) {
+	sts := &appsv1.StatefulSet{}
+	if err := r.Get(ctx, stsObjectKey, sts); err != nil {
+		r.logger.Error(err, fmt.Sprintf("unable to fetch statefulset: %s", stsObjectKey.Name))
+		return nil, err
+	}
+
+	return sts, nil
 }
