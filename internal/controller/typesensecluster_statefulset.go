@@ -287,6 +287,7 @@ func (r *TypesenseClusterReconciler) buildStatefulSet(ctx context.Context, key c
 									Value: ts.Name,
 								},
 							},
+							Resources: ts.Spec.GetMetricsExporterResources(),
 						},
 					},
 					NodeSelector:              ts.Spec.NodeSelector,

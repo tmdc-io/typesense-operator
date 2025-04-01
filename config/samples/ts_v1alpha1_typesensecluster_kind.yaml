@@ -88,7 +88,7 @@ spec:
 #    image: akyriako78/typesense-prometheus-exporter:0.1.7
 #    interval: 15
 #    release: promstack
----
+#---
 #apiVersion: ts.opentelekomcloud.com/v1alpha1
 #kind: TypesenseCluster
 #metadata:
