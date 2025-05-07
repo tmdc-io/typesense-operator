@@ -1,11 +1,9 @@
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
-  name: typesenseclusters.ts.opentelekomcloud.com
   annotations:
     controller-gen.kubebuilder.io/version: v0.15.0
-  labels:
-  {{- include "typesense-operator.labels" . | nindent 4 }}
+  name: typesenseclusters.ts.opentelekomcloud.com
 spec:
   group: ts.opentelekomcloud.com
   names:
@@ -83,8 +81,8 @@ spec:
                   in any namespace
                 properties:
                   name:
-                    description: name is unique within a namespace to reference a secret
-                      resource.
+                    description: name is unique within a namespace to reference a
+                      secret resource.
                     type: string
                   namespace:
                     description: namespace defines the space within which the secret
@@ -96,7 +94,8 @@ spec:
                 description: Affinity is a group of affinity scheduling rules.
                 properties:
                   nodeAffinity:
-                    description: Describes node affinity scheduling rules for the pod.
+                    description: Describes node affinity scheduling rules for the
+                      pod.
                     properties:
                       preferredDuringSchedulingIgnoredDuringExecution:
                         description: |-
@@ -208,8 +207,8 @@ spec:
                           may or may not try to eventually evict the pod from its node.
                         properties:
                           nodeSelectorTerms:
-                            description: Required. A list of node selector terms. The
-                              terms are ORed.
+                            description: Required. A list of node selector terms.
+                              The terms are ORed.
                             items:
                               description: |-
                                 A null or empty node selector term matches no objects. The requirements of
@@ -331,8 +330,8 @@ spec:
                                           relates the key and values.
                                         properties:
                                           key:
-                                            description: key is the label key that the
-                                              selector applies to.
+                                            description: key is the label key that
+                                              the selector applies to.
                                             type: string
                                           operator:
                                             description: |-
@@ -413,8 +412,8 @@ spec:
                                           relates the key and values.
                                         properties:
                                           key:
-                                            description: key is the label key that the
-                                              selector applies to.
+                                            description: key is the label key that
+                                              the selector applies to.
                                             type: string
                                           operator:
                                             description: |-
@@ -504,16 +503,16 @@ spec:
                                 If it's null, this PodAffinityTerm matches with no Pods.
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector
-                                    requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
                                     description: |-
                                       A label selector requirement is a selector that contains values, a key, and an operator that
                                       relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector
-                                          applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
                                         description: |-
@@ -585,16 +584,16 @@ spec:
                                 An empty selector ({}) matches all namespaces.
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector
-                                    requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
                                     description: |-
                                       A label selector requirement is a selector that contains values, a key, and an operator that
                                       relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector
-                                          applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
                                         description: |-
@@ -653,8 +652,8 @@ spec:
                     type: object
                   podAntiAffinity:
                     description: Describes pod anti-affinity scheduling rules (e.g.
-                      avoid putting this pod in the same node, zone, etc. as some other
-                      pod(s)).
+                      avoid putting this pod in the same node, zone, etc. as some
+                      other pod(s)).
                     properties:
                       preferredDuringSchedulingIgnoredDuringExecution:
                         description: |-
@@ -690,8 +689,8 @@ spec:
                                           relates the key and values.
                                         properties:
                                           key:
-                                            description: key is the label key that the
-                                              selector applies to.
+                                            description: key is the label key that
+                                              the selector applies to.
                                             type: string
                                           operator:
                                             description: |-
@@ -772,8 +771,8 @@ spec:
                                           relates the key and values.
                                         properties:
                                           key:
-                                            description: key is the label key that the
-                                              selector applies to.
+                                            description: key is the label key that
+                                              the selector applies to.
                                             type: string
                                           operator:
                                             description: |-
@@ -863,16 +862,16 @@ spec:
                                 If it's null, this PodAffinityTerm matches with no Pods.
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector
-                                    requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
                                     description: |-
                                       A label selector requirement is a selector that contains values, a key, and an operator that
                                       relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector
-                                          applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
                                         description: |-
@@ -944,16 +943,16 @@ spec:
                                 An empty selector ({}) matches all namespaces.
                               properties:
                                 matchExpressions:
-                                  description: matchExpressions is a list of label selector
-                                    requirements. The requirements are ANDed.
+                                  description: matchExpressions is a list of label
+                                    selector requirements. The requirements are ANDed.
                                   items:
                                     description: |-
                                       A label selector requirement is a selector that contains values, a key, and an operator that
                                       relates the key and values.
                                     properties:
                                       key:
-                                        description: key is the label key that the selector
-                                          applies to.
+                                        description: key is the label key that the
+                                          selector applies to.
                                         type: string
                                       operator:
                                         description: |-
@@ -1051,7 +1050,6 @@ spec:
                   serverDirectives:
                     type: string
                   tlsSecretName:
-                    default: ""
                     type: string
                 required:
                 - host
@@ -1467,13 +1465,13 @@ spec:
               conditions:
                 items:
                   description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for direct
-                    use as an array at the field path .status.conditions.  For example,\n\n\n\ttype
-                    FooStatus struct{\n\t    // Represents the observations of a foo's
-                    current state.\n\t    // Known .status.conditions.type are: \"Available\",
-                    \"Progressing\", and \"Degraded\"\n\t    // +patchMergeKey=type\n\t
-                    \   // +patchStrategy=merge\n\t    // +listType=map\n\t    // +listMapKey=type\n\t
-                    \   Conditions []metav1.Condition `json:\"conditions,omitempty\"
+                    state of this API Resource.\n---\nThis struct is intended for
+                    direct use as an array at the field path .status.conditions.  For
+                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
+                    observations of a foo's current state.\n\t    // Known .status.conditions.type
+                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
+                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
+                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
                     patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
                     \   // other fields\n\t}"
                   properties:
@@ -1541,9 +1539,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
