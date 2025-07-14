@@ -12,7 +12,7 @@ jobs:
     name: Release Package and Push Helm Chart to ECR
     runs-on: ubuntu-latest
     container:
-        image: rubiklabs/k8s_cli_builder:0.6.0
+        image: tmdcio/k8s_cli_builder:0.7.0
         credentials:
             username: ${{ secrets.DOCKER_HUB_USERNAME }}
             password: ${{ secrets.DOCKER_HUB_PASSWORD }}
