@@ -1,0 +1,5 @@
+VERSION: 0.3.0-d
+PUBLIC_RELEASE_BRANCH: release/public
+DEV_RELEASE_BRANCH: release/dev
+DEV_RELEASE_SUFFIX: -dev
+DEV_BRANCH: master
