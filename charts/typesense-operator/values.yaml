@@ -36,7 +36,7 @@ metricsService:
     targetPort: 8443
   type: ClusterIP
   serviceMonitor:
-    enabled: true
+    enabled: false
     # kube-prometheus-stack selects ServiceMonitors by this label
     interval: 30s
     scrapeTimeout: 10s
