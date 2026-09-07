@@ -35,3 +35,15 @@ metricsService:
     protocol: TCP
     targetPort: 8443
   type: ClusterIP
+  serviceMonitor:
+    enabled: true
+    # kube-prometheus-stack selects ServiceMonitors by this label
+    interval: 30s
+    scrapeTimeout: 10s
+    additionalLabels: {}
+    annotations: {}
+    relabelings:
+      - targetLabel: name
+        replacement: "demo-typesense-operator"
+    metricRelabelings: []
+
