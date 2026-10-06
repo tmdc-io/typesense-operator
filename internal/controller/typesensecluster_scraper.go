@@ -3,6 +3,8 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strconv"
+
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -12,7 +14,6 @@ import (
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
 )
 
 func (r *TypesenseClusterReconciler) ReconcileScraper(ctx context.Context, ts tsv1alpha1.TypesenseCluster) (err error) {
@@ -79,9 +80,10 @@ func (r *TypesenseClusterReconciler) ReconcileScraper(ctx context.Context, ts ts
 			hasChanged := false
 			hasChangedConfig := false
 			container := scraperCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0]
+			config := scraper.GetScraperConfig()
 
 			for _, env := range container.Env {
-				if env.Name == "CONFIG" && env.Value != scraper.Config {
+				if env.Name == "CONFIG" && env.Value != config {
 					hasChangedConfig = true
 					break
 				}
@@ -129,7 +131,8 @@ func (r *TypesenseClusterReconciler) createScraper(ctx context.Context, key clie
 					BackoffLimit: ptr.To[int32](0),
 					Template: corev1.PodTemplateSpec{
 						Spec: corev1.PodSpec{
-							RestartPolicy: corev1.RestartPolicyNever,
+							ImagePullSecrets: ts.Spec.ImagePullSecrets,
+							RestartPolicy:    corev1.RestartPolicyNever,
 							Containers: []corev1.Container{
 								{
 									Name:  fmt.Sprintf(ClusterScraperCronJobContainer, scraperSpec.Name),
@@ -137,7 +140,7 @@ func (r *TypesenseClusterReconciler) createScraper(ctx context.Context, key clie
 									Env: []corev1.EnvVar{
 										{
 											Name:  "CONFIG",
-											Value: scraperSpec.Config,
+											Value: scraperSpec.GetScraperConfig(),
 										},
 										{
 											Name: "TYPESENSE_API_KEY",

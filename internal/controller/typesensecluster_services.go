@@ -3,8 +3,10 @@ package controller
 import (
 	"context"
 	"fmt"
+
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
+	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -85,7 +87,22 @@ func (r *TypesenseClusterReconciler) ReconcileServices(ctx context.Context, ts t
 			}
 		}
 
-		if int32(ts.Spec.ApiPort) != svc.Spec.Ports[0].Port {
+		// Remove in 0.5.0
+		annotations := getMergedAnnotations(&ts)
+		svcType := v1.ServiceTypeClusterIP
+		if ts.Spec.Service != nil {
+			svcType = ts.Spec.Service.Type
+		}
+
+		svcExternalTrafficPolicy, err := r.invalidateExternalTrafficPolicy(svcType, ts.Spec.Service)
+		if err != nil {
+			return err
+		}
+
+		if int32(ts.Spec.ApiPort) != svc.Spec.Ports[0].Port ||
+			!apiequality.Semantic.DeepEqual(svc.Annotations, annotations) ||
+			svc.Spec.Type != svcType ||
+			!externalTrafficPolicyEqual(svc.Spec.ExternalTrafficPolicy, svcExternalTrafficPolicy) {
 			r.logger.V(debugLevel).Info("updating resolver service", "service", svcObjectKey.Name)
 
 			err := r.updateService(ctx, svc, &ts)
@@ -142,7 +159,7 @@ func (r *TypesenseClusterReconciler) updateHeadlessService(ctx context.Context, 
 
 func (r *TypesenseClusterReconciler) createService(ctx context.Context, key client.ObjectKey, ts *tsv1alpha1.TypesenseCluster) (*v1.Service, error) {
 	svc := &v1.Service{
-		ObjectMeta: getObjectMeta(ts, &key.Name, nil),
+		ObjectMeta: getObjectMeta(ts, &key.Name, getMergedAnnotations(ts)),
 		Spec: v1.ServiceSpec{
 			Type:     v1.ServiceTypeClusterIP,
 			Selector: getLabels(ts),
@@ -161,6 +178,19 @@ func (r *TypesenseClusterReconciler) createService(ctx context.Context, key clie
 		},
 	}
 
+	if ts.Spec.Service != nil {
+		svcType := ts.Spec.Service.Type
+		svcExternalTrafficPolicy, err := r.invalidateExternalTrafficPolicy(svcType, ts.Spec.Service)
+		if err != nil {
+			return nil, err
+		}
+
+		svc.Spec.Type = svcType
+		if svcExternalTrafficPolicy != nil {
+			svc.Spec.ExternalTrafficPolicy = *svcExternalTrafficPolicy
+		}
+	}
+
 	err := ctrl.SetControllerReference(ts, svc, r.Scheme)
 	if err != nil {
 		return nil, err
@@ -176,7 +206,29 @@ func (r *TypesenseClusterReconciler) createService(ctx context.Context, key clie
 
 func (r *TypesenseClusterReconciler) updateService(ctx context.Context, svc *v1.Service, ts *tsv1alpha1.TypesenseCluster) error {
 	patch := client.MergeFrom(svc.DeepCopy())
+
 	svc.Spec.Ports[0].Port = int32(ts.Spec.ApiPort)
+
+	svcType := v1.ServiceTypeClusterIP
+	if ts.Spec.Service != nil {
+		svcType = ts.Spec.Service.Type
+	}
+	svc.Spec.Type = svcType
+
+	svcExternalTrafficPolicy, err := r.invalidateExternalTrafficPolicy(svcType, ts.Spec.Service)
+	if err != nil {
+		return err
+	}
+
+	svc.Spec.ExternalTrafficPolicy = ""
+	if svcExternalTrafficPolicy != nil {
+		svc.Spec.ExternalTrafficPolicy = *svcExternalTrafficPolicy
+	}
+
+	if svc.ObjectMeta.Annotations == nil {
+		svc.ObjectMeta.Annotations = map[string]string{}
+	}
+	svc.ObjectMeta.Annotations = getMergedAnnotations(ts)
 
 	if err := r.Patch(ctx, svc, patch); err != nil {
 		return err
@@ -192,4 +244,19 @@ func (r *TypesenseClusterReconciler) deleteService(ctx context.Context, svc *v1.
 	}
 
 	return nil
+}
+
+func (r *TypesenseClusterReconciler) invalidateExternalTrafficPolicy(
+	svcType v1.ServiceType,
+	service *tsv1alpha1.ServiceSpec,
+) (*v1.ServiceExternalTrafficPolicyType, error) {
+	if service == nil || service.ExternalTrafficPolicy == nil {
+		return nil, nil
+	}
+
+	if svcType == v1.ServiceTypeClusterIP {
+		return nil, fmt.Errorf("externalTrafficPolicy may only be set for externally-accessible services")
+	}
+
+	return service.ExternalTrafficPolicy, nil
 }

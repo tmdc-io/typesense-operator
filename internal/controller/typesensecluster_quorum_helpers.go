@@ -4,23 +4,31 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 	"io"
+	"net"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"net"
-	"net/http"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
+
+	"k8s.io/client-go/rest"
 )
 
-func (r *TypesenseClusterReconciler) getNodeStatus(ctx context.Context, httpClient *http.Client, node NodeEndpoint, ts *tsv1alpha1.TypesenseCluster, secret *v1.Secret) (NodeStatus, error) {
-	fqdn := r.getNodeEndpoint(ts, node.IP.String())
-	url := fmt.Sprintf("http://%s:%d/status", fqdn, ts.Spec.ApiPort)
+func (r *TypesenseClusterReconciler) getNodeStatus(ctx context.Context, httpClient *http.Client, node NodeEndpoint, ts *tsv1alpha1.TypesenseCluster, secret *v1.Secret, logs string) (NodeStatus, error) {
+	u, err := r.buildUrl(node, ts, ts.Spec.ApiPort, "/status")
+	if err != nil {
+		return NodeStatus{State: UnreachableState}, nil
+	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		r.logger.Error(err, "creating request failed")
 		return NodeStatus{State: ErrorState}, nil
@@ -37,7 +45,7 @@ func (r *TypesenseClusterReconciler) getNodeStatus(ctx context.Context, httpClie
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		r.logger.Error(err, "error executing request", "httpStatusCode", resp.StatusCode)
+		r.logger.Error(err, "error executing node status request", "httpStatusCode", resp.StatusCode, "ip", node.IP.String())
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -49,6 +57,15 @@ func (r *TypesenseClusterReconciler) getNodeStatus(ctx context.Context, httpClie
 	err = json.Unmarshal(body, &nodeStatus)
 	if err != nil {
 		return NodeStatus{State: ErrorState}, nil
+	}
+
+	if nodeStatus.State == "" {
+		nodeStatus.State = ErrorState
+	}
+
+	contains := r.inspectPodLogs(logs, ErrorsRequirePodTermination...)
+	if contains {
+		nodeStatus.State = ErrorState
 	}
 
 	return nodeStatus, nil
@@ -75,9 +92,12 @@ func (r *TypesenseClusterReconciler) getClusterStatus(nodesStatus map[string]Nod
 	}
 
 	if leaderNodes == 0 {
-		if availableNodes == 1 {
+		if availableNodes <= 1 {
 			return ClusterStatusNotReady
 		} // here is setting as not ready even if the single node returns state ERROR
+		if availableNodes == notReadyNodes {
+			return ClusterStatusNotReady
+		}
 		return ClusterStatusElectionDeadlock
 	}
 
@@ -91,11 +111,13 @@ func (r *TypesenseClusterReconciler) getClusterStatus(nodesStatus map[string]Nod
 	return ClusterStatusNotReady
 }
 
-func (r *TypesenseClusterReconciler) getNodeHealth(ctx context.Context, httpClient *http.Client, node NodeEndpoint, ts *tsv1alpha1.TypesenseCluster) (NodeHealth, error) {
-	fqdn := r.getNodeEndpoint(ts, node.IP.String())
-	url := fmt.Sprintf("http://%s:%d/health", fqdn, ts.Spec.ApiPort)
+func (r *TypesenseClusterReconciler) getNodeHealth(ctx context.Context, httpClient *http.Client, node NodeEndpoint, ts *tsv1alpha1.TypesenseCluster, logs string) (NodeHealth, error) {
+	u, err := r.buildUrl(node, ts, ts.Spec.ApiPort, "/health")
+	if err != nil {
+		return NodeHealth{Ok: false}, err
+	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
 		r.logger.Error(err, "creating request failed")
 		return NodeHealth{Ok: false}, nil
@@ -119,6 +141,11 @@ func (r *TypesenseClusterReconciler) getNodeHealth(ctx context.Context, httpClie
 		return NodeHealth{Ok: false}, nil
 	}
 
+	contains := r.inspectPodLogs(logs, ErrorsRequirePodTermination...)
+	if nodeHealth.Ok && contains {
+		nodeHealth.Ok = false
+	}
+
 	return nodeHealth, nil
 }
 
@@ -132,9 +159,14 @@ func (r *TypesenseClusterReconciler) getQuorum(ctx context.Context, ts *tsv1alph
 		return &Quorum{}, err
 	}
 
-	nodes := strings.Split(cm.Data["nodes"], ",")
+	rawNodes, ok := cm.Data["nodes"]
+	if !ok || strings.TrimSpace(rawNodes) == "" {
+		err := fmt.Errorf("configmap %s is missing 'nodes' key", configMapName)
+		return &Quorum{}, err
+	}
+	nodes := strings.Split(rawNodes, ",")
 	availableNodes := len(nodes)
-	minRequiredNodes := getMinimumRequiredNodes(availableNodes)
+	minRequiredNodes := getMinimumRequiredNodes(int(sts.Status.Replicas))
 
 	var pods v1.PodList
 	labelSelector := labels.SelectorFromSet(sts.Spec.Selector.MatchLabels)
@@ -157,7 +189,7 @@ func (r *TypesenseClusterReconciler) getQuorum(ctx context.Context, ts *tsv1alph
 		}
 	}
 
-	return &Quorum{minRequiredNodes, availableNodes, qn, cm}, nil
+	return &Quorum{minRequiredNodes, int(availableNodes), qn, cm}, nil
 }
 
 func getMinimumRequiredNodes(availableNodes int) int {
@@ -261,4 +293,68 @@ func (r *TypesenseClusterReconciler) getHealthyLagThresholds(ctx context.Context
 	write = healthyWriteLag
 
 	return
+}
+
+func (r *TypesenseClusterReconciler) getHttpClient(ts *tsv1alpha1.TypesenseCluster) (*http.Client, error) {
+	if r.InCluster {
+		return &http.Client{
+			Timeout: time.Duration(ts.Spec.HealthProbeTimeoutInMilliseconds) * time.Millisecond,
+		}, nil
+	}
+
+	restConfig := rest.CopyConfig(r.Configuration)
+	httpClient, err := rest.HTTPClientFor(restConfig)
+	if err != nil {
+		r.logger.Error(err, "failed to build kubernetes http client: %v")
+		return nil, err
+	}
+
+	httpClient.Timeout = time.Duration(ts.Spec.HealthProbeTimeoutInMilliseconds) * time.Millisecond
+	r.logger.V(debugLevel).Info("fallback to kube-proxy for http calls")
+
+	return httpClient, nil
+}
+
+func (r *TypesenseClusterReconciler) buildUrl(node NodeEndpoint, ts *tsv1alpha1.TypesenseCluster, port int, path string) (string, error) {
+	if !r.InCluster {
+		req := r.ClientSet.CoreV1().RESTClient().
+			Get().
+			Namespace(ts.Namespace).
+			Resource("pods").
+			Name(fmt.Sprintf("%s:%d", r.getShortName(node.PodName), port)).
+			SubResource("proxy").
+			Suffix(strings.TrimPrefix(path, "/"))
+
+		return req.URL().String(), nil
+	}
+
+	host := r.getNodeEndpoint(ts, node.IP.String())
+	return url.JoinPath(fmt.Sprintf("http://%s:%d", host, port), path)
+}
+
+func (r *TypesenseClusterReconciler) getPodLogs(ctx context.Context, node NodeEndpoint, namespace string) (string, error) {
+	opts := &v1.PodLogOptions{
+		Container: "typesense",
+		TailLines: ptr.To[int64](50),
+		//SinceSeconds: ptr.To[int64](120),
+	}
+
+	req := r.ClientSet.CoreV1().Pods(namespace).GetLogs(node.PodName, opts)
+	raw, err := req.DoRaw(ctx)
+	if err != nil {
+		r.logger.Error(err, "failed to get pod logs", "pod", node.PodName, "ip", node.IP)
+		return "", err
+	}
+
+	return string(raw), nil
+}
+
+func (r *TypesenseClusterReconciler) inspectPodLogs(logs string, errs ...error) bool {
+	for _, e := range errs {
+		if e != nil && strings.Contains(logs, e.Error()) {
+			return true
+		}
+	}
+
+	return false
 }

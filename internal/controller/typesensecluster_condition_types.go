@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +19,7 @@ const (
 	ConditionReasonConfigMapNotReady                                     = "ConfigMapNotReady"
 	ConditionReasonServicesNotReady                                      = "ServicesNotReady"
 	ConditionReasonIngressNotReady                                       = "IngressNotReady"
+	ConditionReasonHttpRouteNotReady                                     = "HttpRouteNotReady"
 	ConditionReasonScrapersNotReady                                      = "ScrapersNotReady"
 	ConditionReasonMetricsExporterNotReady                               = "MetricsExporterNotReady"
 	ConditionReasonQuorumStateUnknown                    ConditionQuorum = "QuorumStateUnknown"
@@ -26,6 +28,7 @@ const (
 	ConditionReasonQuorumNotReadyWaitATerm               ConditionQuorum = "QuorumNotReadyWaitATerm"
 	ConditionReasonQuorumDowngraded                      ConditionQuorum = "QuorumDowngraded"
 	ConditionReasonQuorumUpgraded                        ConditionQuorum = "QuorumUpgraded"
+	ConditionReasonQuorumPurged                          ConditionQuorum = "QuorumPurged"
 	ConditionReasonQuorumNeedsAttentionMemoryOrDiskIssue ConditionQuorum = "QuorumNeedsAttentionMemoryOrDiskIssue"
 	ConditionReasonQuorumNeedsAttentionClusterIsLagging  ConditionQuorum = "QuorumNeedsAttentionClusterIsLagging"
 	ConditionReasonQuorumQueuedWrites                    ConditionQuorum = "QuorumQueuedWrites"
@@ -36,7 +39,7 @@ const (
 )
 
 func (r *TypesenseClusterReconciler) initConditions(ctx context.Context, ts *tsv1alpha1.TypesenseCluster) error {
-	if ts.Status.Conditions == nil || len(ts.Status.Conditions) == 0 {
+	if len(ts.Status.Conditions) == 0 {
 		if err := r.patchStatus(ctx, ts, func(status *tsv1alpha1.TypesenseClusterStatus) {
 			meta.SetStatusCondition(&ts.Status.Conditions, metav1.Condition{Type: ConditionTypeReady, Status: metav1.ConditionUnknown, Reason: ConditionReasonReconciliationInProgress, Message: InitReconciliationMessage})
 			status.Phase = "Bootstrapping"

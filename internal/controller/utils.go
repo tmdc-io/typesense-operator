@@ -4,12 +4,16 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"regexp"
+	"sort"
+	"strings"
+
 	tsv1alpha1 "github.com/akyriako/typesense-operator/api/v1alpha1"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"regexp"
-	"sort"
 )
 
 const (
@@ -41,6 +45,56 @@ func generateSecureRandomString(length int) (string, error) {
 	return string(result), nil
 }
 
+func mergeMaps(maps ...map[string]string) map[string]string {
+	size := 0
+	for _, m := range maps {
+		size += len(m)
+	}
+
+	if size == 0 {
+		return nil
+	}
+
+	merged := make(map[string]string, size)
+	for _, m := range maps {
+		for k, v := range m {
+			merged[k] = v
+		}
+	}
+
+	return merged
+}
+
+func mergeLabels(maps ...map[string]string) map[string]string {
+	return mergeMaps(maps...)
+}
+
+func mergeAnnotations(maps ...map[string]string) map[string]string {
+	return mergeMaps(maps...)
+}
+
+func getMergedAnnotations(ts *tsv1alpha1.TypesenseCluster) map[string]string {
+	// Remove ts.Spec.ServiceAnnotations in 0.5.0
+	annotations := ts.Spec.ServiceAnnotations
+	if ts.Spec.Service != nil && ts.Spec.Service.Annotations != nil {
+		annotations = mergeAnnotations(annotations, ts.Spec.Service.Annotations)
+	}
+
+	return annotations
+}
+
+func getMergedLabels(def map[string]string, scoped map[string]string) map[string]string {
+	return mergeLabels(def, scoped)
+}
+
+func getDefaultLabels(ts *tsv1alpha1.TypesenseCluster) map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/managed-by": "typesense-operator",
+		"app.kubernetes.io/name":       "typesense",
+		"app.kubernetes.io/instance":   ts.Name,
+	}
+}
+
 func getLabels(ts *tsv1alpha1.TypesenseCluster) map[string]string {
 	return map[string]string{
 		"app": fmt.Sprintf(ClusterAppLabel, ts.Name),
@@ -55,7 +109,7 @@ func getObjectMeta(ts *tsv1alpha1.TypesenseCluster, name *string, annotations ma
 	return metav1.ObjectMeta{
 		Name:        *name,
 		Namespace:   ts.Namespace,
-		Labels:      getLabels(ts),
+		Labels:      getMergedLabels(getDefaultLabels(ts), getLabels(ts)),
 		Annotations: annotations,
 	}
 }
@@ -74,7 +128,7 @@ func getReverseProxyObjectMeta(ts *tsv1alpha1.TypesenseCluster, name *string, an
 	return metav1.ObjectMeta{
 		Name:        *name,
 		Namespace:   ts.Namespace,
-		Labels:      getReverseProxyLabels(ts),
+		Labels:      getMergedLabels(getDefaultLabels(ts), getReverseProxyLabels(ts)),
 		Annotations: annotations,
 	}
 }
@@ -82,6 +136,21 @@ func getReverseProxyObjectMeta(ts *tsv1alpha1.TypesenseCluster, name *string, an
 func getPodMonitorLabels(ts *tsv1alpha1.TypesenseCluster) map[string]string {
 	return map[string]string{
 		"app": fmt.Sprintf(ClusterMetricsPodMonitorAppLabel, ts.Name),
+	}
+}
+
+func getIngressObjectMeta(ts *tsv1alpha1.TypesenseCluster, name *string, labels, annotations map[string]string) metav1.ObjectMeta {
+	if name == nil {
+		name = &ts.Name
+	}
+
+	defaultLabels := getMergedLabels(getDefaultLabels(ts), getLabels(ts))
+
+	return metav1.ObjectMeta{
+		Name:        *name,
+		Namespace:   ts.Namespace,
+		Labels:      getMergedLabels(defaultLabels, labels),
+		Annotations: annotations,
 	}
 }
 
@@ -93,8 +162,40 @@ func getPodMonitorObjectMeta(ts *tsv1alpha1.TypesenseCluster, name *string, anno
 	return metav1.ObjectMeta{
 		Name:        *name,
 		Namespace:   ts.Namespace,
-		Labels:      getPodMonitorLabels(ts),
+		Labels:      getMergedLabels(getDefaultLabels(ts), getPodMonitorLabels(ts)),
 		Annotations: annotations,
+	}
+}
+
+func getHttpRouteLabels(ts *tsv1alpha1.TypesenseCluster, spec tsv1alpha1.HttpRouteSpec) map[string]string {
+	route := map[string]string{
+		"app":   fmt.Sprintf(ClusterAppLabel, ts.Name),
+		"route": fmt.Sprintf(ClusterHttpRoute, ts.Name, spec.Name),
+	}
+
+	defaults := getDefaultLabels(ts)
+
+	return mergeLabels(defaults, route)
+}
+
+func getHttpRouteObjectMeta(ts *tsv1alpha1.TypesenseCluster, spec tsv1alpha1.HttpRouteSpec, name *string, labels, annotations map[string]string) metav1.ObjectMeta {
+	if name == nil {
+		name = &ts.Name
+	}
+
+	return metav1.ObjectMeta{
+		Name:        *name,
+		Namespace:   ts.Namespace,
+		Labels:      mergeLabels(getHttpRouteLabels(ts, spec), labels),
+		Annotations: annotations,
+	}
+}
+
+func getReferenceGrantObjectMeta(ts *tsv1alpha1.TypesenseCluster, spec tsv1alpha1.HttpRouteSpec) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      fmt.Sprintf(ClusterHttpRouteReferenceGrant, ts.Name, spec.Name),
+		Namespace: string(*spec.ParentRef.Namespace), // namespace of the *target* (Gateway)
+		Labels:    getHttpRouteLabels(ts, spec),
 	}
 }
 
@@ -179,4 +280,50 @@ var ip4Prefix = regexp.MustCompile(
 
 func hasIP4Prefix(s string) bool {
 	return ip4Prefix.MatchString(s)
+}
+
+func toTitle(s string) string {
+	return cases.Title(language.Und, cases.NoLower).String(s)
+}
+
+func filterMap(m map[string]string, filters ...string) map[string]string {
+	if len(m) == 0 {
+		return m
+	}
+
+	filtered := make(map[string]string, len(m))
+	for key, value := range m {
+		skip := false
+		for _, f := range filters {
+			if strings.Contains(key, f) {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+		filtered[key] = value
+	}
+
+	return filtered
+}
+
+func getImageTag(image string) string {
+	pos := strings.LastIndex(image, ":")
+	if pos == -1 {
+		return image
+	}
+	return image[pos+1:]
+}
+
+func externalTrafficPolicyEqual(
+	current corev1.ServiceExternalTrafficPolicyType,
+	desired *corev1.ServiceExternalTrafficPolicyType,
+) bool {
+	if desired == nil {
+		return current == ""
+	}
+
+	return current == *desired
 }
